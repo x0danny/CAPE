@@ -144,3 +144,27 @@ with col_f:
 
 st.info("📍 LAX freight peaked during the 2021 supply chain surge — consistent with CAPE's highest risk simulation periods where carbon intensity reached 0.158 kg CO2e per dollar of revenue.")
 st.caption("CAPE — Carbon-Aware Predictive Engine | SAIES Research | CSULA CIS | NSF Grant Project")
+st.divider()
+st.subheader("🤖 CAPE Order Risk Model")
+
+col_r1, col_r2, col_r3 = st.columns(3)
+col_r1.metric("Model Type", "Random Forest")
+col_r2.metric("CV Accuracy", "94.2% ±3.3%")
+col_r3.metric("Top Predictor", "total_co2e")
+
+features_list = ['total_co2e','num_orders','total_quantity','SIM_ELAPSED_STEPS','avg_margin','overstock_co2e','SIM_STEP','avg_net_value']
+importances_list = [0.1735,0.1469,0.1420,0.1132,0.1063,0.0923,0.0740,0.0721]
+
+fig_imp = px.bar(
+    x=importances_list,
+    y=features_list,
+    orientation='h',
+    title='CAPE Risk Model — Feature Importance (Trained on ERPsim Data)',
+    labels={'x': 'Importance', 'y': 'Feature'},
+    color=importances_list,
+    color_continuous_scale='Blues'
+)
+fig_imp.update_layout(yaxis={'categoryorder': 'total ascending'})
+st.plotly_chart(fig_imp, use_container_width=True)
+
+st.success("🔑 Key Finding: total_co2e is the #1 predictor of order lateness — carbon exposure and order risk are statistically linked. CV accuracy: 94.2% across 5 folds.")
