@@ -1,2 +1,19 @@
 import streamlit as st
-st.switch_page("pages/1_CAPE_Carbon.py")
+
+st.set_page_config(page_title="CAPE Platform", page_icon="🌿", layout="wide")
+
+st.title("🌿 CAPE — Carbon-Aware Predictive Engine")
+st.markdown("**Predictive Analytics on Carbon-Awareness of LAX Logistics**")
+st.markdown("Dr. Ming Wang · Brian · Daniel Ramirez | CSULA CIS | SAIES Research | NSF Grant Project")
+st.divider()
+
+col1, col2, col3 = st.columns(3)
+with col1:
+    st.success("### 🌿 CAPE Carbon\nCarbon risk scores, overstock penalties, LAX validation.")
+with col2:
+    st.info("### ⚡ Control Tower\nOrder risk intelligence, carbon alerts, plain English explanations.")
+with col3:
+    st.warning("### 📊 Sales Intelligence\nBrian's dashboard — coming soon.")
+
+st.divider()
+st.caption("Use the sidebar to navigate between modules")
