@@ -21,6 +21,8 @@ CAPE changes that. When an order is flagged as high risk for late delivery, CAPE
 
 **Short answer:** Yes. Late order risk is a statistically meaningful predictor of CO₂e penalties. 60.8% of all direct (Scope 1) emissions in the ERPsim dataset come from inventory overstock — not from moving goods. That's the carbon cost of delayed decisions.
 
+**Project Link:** https://cape-dashboard.streamlit.app/
+
 ---
 
 ## Key Findings
