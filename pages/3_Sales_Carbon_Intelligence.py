@@ -1,5 +1,5 @@
 """
-CAPE — Sales & Carbon Intelligence
+CAPE: Sales & Carbon Intelligence
 ===================================
 Connects ERPsim sales performance to carbon outcomes at the product-type
 and sales-org level. Answers: which product types and orgs earn the most
@@ -8,8 +8,8 @@ while emitting the least?
 Place this file in: pages/3_Sales_Carbon_Intelligence.py
 
 Data required (in data/ folder):
-  - Sales.xlsx             — ERPsim sales transactions
-  - Carbon Emissions.xlsx  — ERPsim carbon records (Scope 1/2/3)
+  - Sales.xlsx             - ERPsim sales transactions
+  - Carbon Emissions.xlsx  - ERPsim carbon records (Scope 1/2/3)
 
 Column names confirmed via validate_data.py on 2026-05-31.
 
@@ -187,9 +187,10 @@ def compute_metrics(sales: pd.DataFrame, carbon: pd.DataFrame):
         product_df["revenue_m"] /= 1_000_000
         product_df["intensity"]  = product_df["attributed_co2e"] / (product_df["revenue_m"] * 1_000_000)
         product_df["units_k"]    = product_df["units"] / 1000
-        med = product_df["intensity"].median()
+        p33 = product_df["intensity"].quantile(0.33)
+        p67 = product_df["intensity"].quantile(0.67)
         product_df["risk_level"] = product_df["intensity"].apply(
-            lambda x: "high" if x > med*1.3 else ("medium" if x > med*0.85 else "low"))
+            lambda x: "high" if x > p67 else ("low" if x < p33 else "medium"))
 
         # ── 3. Sales-org level ───────────────────────────────────────────
         org_p = (sales.groupby(["period",COL_ROUND,COL_STEP,COL_SALES_ORG])[COL_REVENUE]
@@ -407,7 +408,7 @@ def main():
     if not using_live:
         period_df, product_df, org_df, region_df = make_synthetic()
         st.info(
-            "**Reference mode** — showing research summary values. "
+            "**Reference mode**: showing research summary values. "
             "Add `Sales.xlsx` and `Carbon Emissions.xlsx` to `data/` to load live data.",
             icon="ℹ️",
         )
@@ -415,16 +416,16 @@ def main():
     # ── Header ────────────────────────────────────────────────────────────────
     st.markdown("### 📊 Sales & Carbon Intelligence")
     st.caption(
-        "Which product types and organizations earn the most while emitting the least? "
-        "This page bridges sales performance with carbon outcomes — the missing layer "
-        "between revenue reporting and carbon compliance."
+        "Which product types and organizations bring in the most revenue while producing "
+        "the least carbon? This page connects sales performance to carbon outcomes, "
+        "filling the gap that standard revenue reports leave out."
     )
     st.divider()
 
     # ── KPI cards ─────────────────────────────────────────────────────────────
     total_rev     = product_df["revenue_m"].sum()
     avg_intensity = (product_df["intensity"] * product_df["revenue_m"]).sum() / product_df["revenue_m"].sum()
-    best_region   = region_df.iloc[0]["region"] if not region_df.empty else "—"
+    best_region   = region_df.iloc[0]["region"] if not region_df.empty else "N/A"
     best_reg_eff  = region_df.iloc[0]["eff"]    if not region_df.empty else 0
     high_risk_n   = (product_df["risk_level"] == "high").sum()
     total_types   = len(product_df)
@@ -435,74 +436,95 @@ def main():
                   help="Sum across all simulation periods and product types")
     with c2:
         st.metric("Avg Carbon Intensity", f"{avg_intensity:.4f}",
-                  help="kg CO₂e per $ revenue (revenue-weighted)")
+                  help="kg CO2e per dollar of revenue, revenue-weighted")
     with c3:
         st.metric("Most Efficient Region", best_region,
-                  help=f"${best_reg_eff:.1f} revenue per kg CO₂e")
+                  help=f"${best_reg_eff:.1f} revenue per kg CO2e")
     with c4:
         st.metric("High-Risk Product Types", f"{high_risk_n} of {total_types}",
-                  help="Product types above 1.3× the median carbon intensity")
+                  help="Top third of product types by carbon intensity")
 
     st.markdown("")
 
     # ── Time series ───────────────────────────────────────────────────────────
-    st.markdown("**Revenue vs. CAPE Carbon Risk Score — by simulation period**")
+    st.markdown("**Revenue vs. CAPE Carbon Risk Score by simulation period**")
     st.caption(
-        "Revenue growth and carbon risk moved together in Round 3. "
-        "High-risk periods (score > 0.6) are marked with larger dots."
+        "Revenue and carbon risk tracked together in Round 3. "
+        "Periods with a risk score above 0.6 are flagged with larger dots."
     )
     st.plotly_chart(chart_time_series(period_df), use_container_width=True)
 
-    # ── Bottom row: Bubble + two bars ─────────────────────────────────────────
-    col_bub, col_org, col_reg = st.columns([0.40, 0.30, 0.30])
+    # ── Row 2: Bubble + Org bar ───────────────────────────────────────────────
+    col_bub, col_org = st.columns([0.55, 0.45])
 
     with col_bub:
         st.markdown("**Product type vs. carbon intensity**")
         st.caption(
-            "Each bubble = one product type (T01–T06) aggregated across all teams. "
-            "Bubble size = total units sold. Hover for exact values."
+            "Each bubble is one product type (T01 through T06) across all teams combined. "
+            "Bubble size shows total units sold. Hover over any bubble for exact numbers."
         )
         st.plotly_chart(chart_bubble(product_df), use_container_width=True)
 
     with col_org:
         st.markdown("**Carbon efficiency by team**")
-        st.caption("$ revenue per kg CO₂e — higher is better. Green = most efficient.")
+        st.caption(
+            "How much revenue each team generated per kg of CO2e. "
+            "Higher is better. Green bars are the most efficient."
+        )
         st.plotly_chart(chart_org_bar(org_df), use_container_width=True)
 
-    with col_reg:
-        st.markdown("**Carbon efficiency by region**")
-        # Region group legend
-        lc = st.columns(3)
-        lc[0].markdown(f"<span style='color:{BLUE};font-size:11px;'>■ North</span>", unsafe_allow_html=True)
-        lc[1].markdown(f"<span style='color:{TEAL};font-size:11px;'>■ Central</span>", unsafe_allow_html=True)
-        lc[2].markdown(f"<span style='color:{CORAL};font-size:11px;'>■ South/East</span>", unsafe_allow_html=True)
-        st.plotly_chart(chart_region_bar(region_df), use_container_width=True)
+    # ── Row 3: Region bar (full width) ────────────────────────────────────────
+    st.markdown("**Carbon efficiency by region**")
+    lc = st.columns(4)
+    lc[0].markdown(f"<span style='color:{BLUE};font-size:11px;'>■ North</span>", unsafe_allow_html=True)
+    lc[1].markdown(f"<span style='color:{TEAL};font-size:11px;'>■ Central</span>", unsafe_allow_html=True)
+    lc[2].markdown(f"<span style='color:{CORAL};font-size:11px;'>■ South/East</span>", unsafe_allow_html=True)
+    st.caption(
+        "Revenue per kg CO2e broken down by German state. "
+        "Color shows geographic group."
+    )
+    st.plotly_chart(chart_region_bar(region_df), use_container_width=True)
 
     # ── Key finding ───────────────────────────────────────────────────────────
     st.divider()
 
-    r2 = period_df[period_df["label"].str.startswith("R2")]
-    r3 = period_df[period_df["label"].str.startswith("R3")]
+    # Round IDs may be integers (1,2,3,4) or strings (R1,R2,R3)
+    # Use positional sorting so it works either way
+    period_df["round_id"] = period_df["label"].str.split("-").str[0]
+    sorted_rounds = sorted(period_df["round_id"].unique())
+
+    r2_id = sorted_rounds[1] if len(sorted_rounds) > 1 else None
+    r3_id = sorted_rounds[2] if len(sorted_rounds) > 2 else None
+
+    r2 = period_df[period_df["round_id"] == r2_id] if r2_id else pd.DataFrame()
+    r3 = period_df[period_df["round_id"] == r3_id] if r3_id else pd.DataFrame()
+
     r2_rev  = r2["revenue_m"].sum()
     r3_rev  = r3["revenue_m"].sum()
     r2_risk = r2["risk"].mean()
     r3_risk = r3["risk"].mean()
-    rev_delta  = ((r3_rev  - r2_rev)  / r2_rev  * 100) if r2_rev  else 0
-    risk_delta = ((r3_risk - r2_risk) / r2_risk * 100) if r2_risk else 0
 
-    best_type = product_df.loc[product_df["intensity"].idxmin(), "product_type"]
+    rev_delta  = ((r3_rev  - r2_rev)  / r2_rev  * 100) if r2_rev  > 0 else None
+    risk_delta = ((r3_risk - r2_risk) / r2_risk * 100) if r2_risk > 0 else None
+
+    best_type  = product_df.loc[product_df["intensity"].idxmin(), "product_type"]
     worst_type = product_df.loc[product_df["intensity"].idxmax(), "product_type"]
-    ratio = product_df["intensity"].max() / product_df["intensity"].min()
+    best_name  = product_df.loc[product_df["intensity"].idxmin(), "product"]
+    worst_name = product_df.loc[product_df["intensity"].idxmax(), "product"]
+    ratio      = product_df["intensity"].max() / product_df["intensity"].min()
+
+    rev_str  = f"**{rev_delta:.0f}%**"  if rev_delta  is not None else "a different amount"
+    risk_str = f"**{risk_delta:.0f}%**" if risk_delta is not None else "at a higher rate"
 
     st.info(
-        f"**Key finding — revenue growth and carbon risk are not independent.** "
-        f"Round 3 revenue rose **{rev_delta:.0f}%** vs Round 2, but average carbon risk "
-        f"increased **{risk_delta:.0f}%**. "
-        f"At the product level, **{best_type}** is the most carbon-efficient type "
-        f"and **{worst_type}** the least — a **{ratio:.1f}×** difference in carbon intensity "
-        f"for products that may have similar revenue profiles. "
-        f"Shifting sales mix toward lower-intensity product types is a lever "
-        f"for reducing carbon exposure without sacrificing revenue.",
+        f"**Key finding: revenue growth and carbon risk do not move independently.** "
+        f"From Round 2 to Round 3, revenue went up {rev_str} while average carbon risk "
+        f"climbed {risk_str} over the same stretch. "
+        f"At the product level, {best_name} ({best_type}) had the lowest carbon intensity "
+        f"and {worst_name} ({worst_type}) the highest, a **{ratio:.1f}x** gap. "
+        f"Even a small spread like that adds up across thousands of transactions. "
+        f"Shifting the sales mix toward lower-intensity products is one practical way "
+        f"to reduce carbon exposure without giving up revenue.",
         icon="🔍",
     )
 
