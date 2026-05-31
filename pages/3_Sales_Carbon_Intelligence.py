@@ -235,44 +235,69 @@ def compute_metrics(sales: pd.DataFrame, carbon: pd.DataFrame):
 # ── Charts ────────────────────────────────────────────────────────────────────
 
 def chart_time_series(period_df):
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=period_df["label"], y=period_df["revenue_m"],
-        name="Revenue ($M)", yaxis="y1",
-        mode="lines+markers",
-        line=dict(color=TEAL, width=2),
-        fill="tozeroy", fillcolor="rgba(29,158,117,0.07)",
-        marker=dict(size=4),
-        hovertemplate="<b>%{x}</b><br>Revenue: $%{y:.3f}M<extra></extra>",
-    ))
-    fig.add_trace(go.Scatter(
-        x=period_df["label"], y=period_df["risk"],
-        name="CAPE Risk Score", yaxis="y2",
-        mode="lines+markers",
-        line=dict(color=RED, width=1.5, dash="dot"),
-        marker=dict(
-            size=[8 if r >= RISK_THRESHOLD else 3 for r in period_df["risk"]],
-            color=[RED if r >= RISK_THRESHOLD else "rgba(226,75,74,0.3)" for r in period_df["risk"]],
+    from plotly.subplots import make_subplots
+    fig = make_subplots(specs=[[{"secondary_y": True}]])
+
+    fig.add_trace(
+        go.Scatter(
+            x=period_df["label"], y=period_df["revenue_m"],
+            name="Revenue ($M)",
+            mode="lines+markers",
+            line=dict(color=TEAL, width=2),
+            fill="tozeroy", fillcolor="rgba(29,158,117,0.07)",
+            marker=dict(size=4),
+            hovertemplate="<b>%{x}</b><br>Revenue: $%{y:.3f}M<extra></extra>",
         ),
-        hovertemplate="<b>%{x}</b><br>Risk: %{y:.3f}<extra></extra>",
-    ))
-    fig.add_trace(go.Scatter(
-        x=period_df["label"], y=[RISK_THRESHOLD]*len(period_df),
-        yaxis="y2", mode="lines",
-        line=dict(color="rgba(226,75,74,0.22)", width=1, dash="dash"),
-        hoverinfo="skip", showlegend=False,
-    ))
+        secondary_y=False,
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=period_df["label"], y=period_df["risk"],
+            name="CAPE Risk Score",
+            mode="lines+markers",
+            line=dict(color=RED, width=1.5, dash="dot"),
+            marker=dict(
+                size=[8 if r >= RISK_THRESHOLD else 3 for r in period_df["risk"]],
+                color=[RED if r >= RISK_THRESHOLD else "rgba(226,75,74,0.3)"
+                       for r in period_df["risk"]],
+            ),
+            hovertemplate="<b>%{x}</b><br>Risk: %{y:.3f}<extra></extra>",
+        ),
+        secondary_y=True,
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=period_df["label"], y=[RISK_THRESHOLD] * len(period_df),
+            name="Threshold",
+            mode="lines",
+            line=dict(color="rgba(226,75,74,0.22)", width=1, dash="dash"),
+            hoverinfo="skip", showlegend=False,
+        ),
+        secondary_y=True,
+    )
+
+    fig.update_yaxes(
+        title_text="Revenue ($M)",
+        title_font=dict(color=TEAL, size=11),
+        tickfont=dict(color=TEAL, size=10),
+        tickprefix="$", ticksuffix="M",
+        showgrid=True, gridcolor="rgba(128,128,128,0.1)",
+        secondary_y=False,
+    )
+    fig.update_yaxes(
+        title_text="Risk Score",
+        title_font=dict(color=RED, size=11),
+        tickfont=dict(color=RED, size=10),
+        range=[0, 1.05],
+        showgrid=False,
+        secondary_y=True,
+    )
     fig.update_layout(
-        height=230, margin=dict(t=10,b=45,l=55,r=55),
+        height=230, margin=dict(t=10, b=45, l=55, r=55),
         plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-        yaxis=dict(title="Revenue ($M)", titlefont=dict(color=TEAL,size=11),
-                   tickfont=dict(color=TEAL,size=10), tickprefix="$", ticksuffix="M",
-                   showgrid=True, gridcolor="rgba(128,128,128,0.1)"),
-        yaxis2=dict(title="Risk Score", titlefont=dict(color=RED,size=11),
-                    tickfont=dict(color=RED,size=10), overlaying="y", side="right",
-                    range=[0,1.05], showgrid=False),
         xaxis=dict(showgrid=False, tickangle=45, tickfont=dict(size=9), automargin=True),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0, font=dict(size=11)),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02,
+                    xanchor="left", x=0, font=dict(size=11)),
         hovermode="x unified",
     )
     return fig
