@@ -348,13 +348,13 @@ def get_answer(question, ctx):
     if answer:
         return answer, None
     system_prompt = _build_system_prompt(ctx)
-    answer, gemini_err = _gemini_answer(question, system_prompt)
-    if answer:
-        return answer, None
     answer, groq_err = _groq_answer(question, system_prompt)
     if answer:
         return answer, None
-    errors = [e for e in [gemini_err, groq_err] if e]
+    answer, gemini_err = _gemini_answer(question, system_prompt)
+    if answer:
+        return answer, None
+    errors = [e for e in [groq_err, gemini_err] if e]
     return (
         "I can answer questions about CAPE risk scores, carbon emissions by scope or type, "
         "overstock penalties, late orders, the risk formula, Round 3 analysis, LAX air cargo, "
