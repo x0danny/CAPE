@@ -138,11 +138,11 @@ RESEARCH CONTEXT:
 - Team: Daniel Ramirez (CIS), Brian (Finance/Supply Chain), Dr. Ming Wang (Faculty Advisor)
 
 RESPONSE GUIDELINES:
-- CAPE/carbon/supply chain questions: answer directly and authoritatively from the data above. If the data does not contain enough information to answer clearly, say so explicitly.
-- General knowledge questions (science, history, concepts): answer helpfully, note that the information comes from general training data and may not be fully current or accurate, and indicate the type of source (e.g. "Based on general knowledge..." or "As of my training data...").
-- Current events, news, or real-time information (weather, today's date, live prices): answer based on training data if possible, clearly state that the information may be outdated, and recommend the user verify with a current source.
-- Greetings and casual conversation: respond naturally without disclaimers.
-Keep all responses under 150 words."""
+- CAPE/carbon/supply chain questions: answer directly and authoritatively from the data above. If the data does not contain enough information to answer clearly, say so explicitly. No source citation needed — the data is the ERPsim dataset.
+- General knowledge or external questions: answer helpfully. At the end of the response, include a source line in this exact format: "Source: [website or organization], [Author or Publisher if known], [Year if known]". If multiple sources apply, list each on its own line.
+- Current events, news, or real-time information: answer based on training data, clearly note the information may be outdated, include the source line, and recommend the user verify with a current source.
+- Greetings and casual conversation: respond naturally, no source needed.
+Keep all responses under 200 words."""
 
 
 # ── Pattern matching ──────────────────────────────────────────────────────────
@@ -303,7 +303,7 @@ def _gemini_answer(question, system_prompt):
     payload = json.dumps({
         "contents": [{"parts": [{"text": question}]}],
         "systemInstruction": {"parts": [{"text": system_prompt}]},
-        "generationConfig": {"maxOutputTokens": 300, "temperature": 0.2},
+        "generationConfig": {"maxOutputTokens": 450, "temperature": 0.2},
     }).encode("utf-8")
     req = Request(
         _GEMINI_URL, data=payload,
@@ -327,7 +327,7 @@ def _groq_answer(question, system_prompt):
             {"role": "system", "content": system_prompt},
             {"role": "user",   "content": question},
         ],
-        "max_tokens": 300,
+        "max_tokens": 450,
         "temperature": 0.2,
     }).encode("utf-8")
     req = Request(
@@ -361,8 +361,8 @@ def get_answer(question, ctx):
 
 # ── Page ──────────────────────────────────────────────────────────────────────
 st.title("💬 CAPE AI")
-st.markdown("**Ask questions about carbon risk, overstock penalties, simulation periods, and the CAPE methodology.**")
-st.caption("Answers are grounded in the ERPsim dataset. CAPE AI will say so if a question can't be answered from the data.")
+st.markdown("**Ask anything — CAPE data, carbon risk, general knowledge, or casual questions.**")
+st.caption("CAPE data answers are drawn directly from the ERPsim dataset. Responses referencing external sources include a citation and should be independently verified.")
 st.divider()
 
 ctx = load_cape_context()
@@ -402,14 +402,9 @@ with st.sidebar:
         st.rerun()
     st.divider()
     if GEMINI_API_KEY or GROQ_API_KEY:
-        providers = []
-        if GEMINI_API_KEY:
-            providers.append("Gemini")
-        if GROQ_API_KEY:
-            providers.append("Groq")
-        st.success(f"AI: {' + '.join(providers)}")
+        st.success("AI Assistant: Online")
     else:
-        st.warning("No API key found. Pattern matching only.\n\nAdd `GEMINI_API_KEY` or `GROQ_API_KEY` to a `.env` file in the repo root.")
+        st.warning("AI Assistant: Offline\n\nAdd `GEMINI_API_KEY` or `GROQ_API_KEY` to a `.env` file in the repo root to enable AI responses.")
 
 for msg in st.session_state.cape_messages:
     with st.chat_message(msg["role"]):
