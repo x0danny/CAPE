@@ -137,7 +137,7 @@ RESEARCH CONTEXT:
 - Air freight carries ~47–50x the carbon per ton-mile vs. ground transport
 - Team: Daniel Ramirez (CIS), Brian (Finance/Supply Chain), Dr. Ming Wang (Faculty Advisor)
 
-Answer concisely from the data above. If a question cannot be answered from this data, say so clearly. Keep responses under 150 words."""
+When questions are about CAPE, carbon risk, or supply chain, answer from the data above. For other questions — greetings, general knowledge, news, weather, or anything else — answer helpfully as a general assistant. Keep responses under 150 words."""
 
 
 # ── Pattern matching ──────────────────────────────────────────────────────────
