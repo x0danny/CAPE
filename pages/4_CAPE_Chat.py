@@ -1,3 +1,4 @@
+import re
 import streamlit as st
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
@@ -462,6 +463,16 @@ def _gemini_answer(question, system_prompt):
         return None, f"Gemini: {type(e).__name__}: {e}{(' — ' + body) if body else ''}"
 
 
+def _clean_response(text):
+    # Each numbered source on its own line
+    text = re.sub(r'\s*(\[\d+\])', r'\n\1', text)
+    # Remove "(not specified)" date placeholders
+    text = re.sub(r'\s*\(not specified\)', '', text)
+    # Ensure a blank line before the first source reference
+    text = re.sub(r'\n(\[1\])', r'\n\n\1', text)
+    return text.strip()
+
+
 def get_answer(question, ctx):
     # CAPE-specific questions: answered instantly from the dataset, no search needed
     answer = _pattern_answer(question, ctx)
@@ -480,10 +491,10 @@ def get_answer(question, ctx):
 
     answer, groq_err = _groq_answer(question, system_prompt)
     if answer:
-        return answer, None, searched
+        return _clean_response(answer), None, searched
     answer, gemini_err = _gemini_answer(question, system_prompt)
     if answer:
-        return answer, None, searched
+        return _clean_response(answer), None, searched
 
     errors = [e for e in [search_err, groq_err, gemini_err] if e]
     return (
