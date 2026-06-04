@@ -315,14 +315,19 @@ def _gemini_answer(question, system_prompt):
             result = json.loads(resp.read().decode("utf-8"))
         return result["candidates"][0]["content"]["parts"][0]["text"].strip(), None
     except Exception as e:
-        return None, f"Gemini: {type(e).__name__}: {e}"
+        body = ""
+        try:
+            body = e.read().decode("utf-8")
+        except Exception:
+            pass
+        return None, f"Gemini: {type(e).__name__}: {e}{(' — ' + body) if body else ''}"
 
 
 def _groq_answer(question, system_prompt):
     if not GROQ_API_KEY:
         return None, "GROQ_API_KEY not loaded"
     payload = json.dumps({
-        "model": "llama-3.1-8b-instant",
+        "model": "llama-3.3-70b-versatile",
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user",   "content": question},
@@ -340,7 +345,12 @@ def _groq_answer(question, system_prompt):
             result = json.loads(resp.read().decode("utf-8"))
         return result["choices"][0]["message"]["content"].strip(), None
     except Exception as e:
-        return None, f"Groq: {type(e).__name__}: {e}"
+        body = ""
+        try:
+            body = e.read().decode("utf-8")
+        except Exception:
+            pass
+        return None, f"Groq: {type(e).__name__}: {e}{(' — ' + body) if body else ''}"
 
 
 def get_answer(question, ctx):
