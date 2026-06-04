@@ -4,3 +4,4 @@ plotly
 streamlit
 scikit-learn
 pyarrow
+tavily-python

@@ -21,6 +21,7 @@ if _env_path.exists():
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 GROQ_API_KEY   = os.environ.get("GROQ_API_KEY", "")
+TAVILY_API_KEY = os.environ.get("TAVILY_API_KEY", "")
 
 # Streamlit Cloud secrets are not auto-injected into os.environ — read directly
 try:
@@ -28,11 +29,14 @@ try:
         GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY", "")
     if not GROQ_API_KEY:
         GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "")
+    if not TAVILY_API_KEY:
+        TAVILY_API_KEY = st.secrets.get("TAVILY_API_KEY", "")
 except Exception:
     pass
 
 _GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
 _GROQ_URL   = "https://api.groq.com/openai/v1/chat/completions"
+_TAVILY_URL = "https://api.tavily.com/search"
 
 # ── Data ──────────────────────────────────────────────────────────────────────
 @st.cache_data
@@ -89,7 +93,7 @@ def load_cape_context():
 
 
 # ── System prompt ─────────────────────────────────────────────────────────────
-def _build_system_prompt(ctx):
+def _build_system_prompt(ctx, search_results=None):
     hr = ctx["high_risk"]
     hr_list = ", ".join(
         f"{r['period']} (score: {r['cape_risk_score']:.3f})"
@@ -102,7 +106,7 @@ def _build_system_prompt(ctx):
     ].to_string(index=False)
     late_pct = ctx["late_orders"] / ctx["total_orders"] * 100
 
-    return f"""You are CAPE AI, an assistant for the Carbon-Aware Predictive Engine — an NSF-funded research project at CSULA (California State University, Los Angeles).
+    prompt = f"""You are CAPE AI, an assistant for the Carbon-Aware Predictive Engine — an NSF-funded research project at CSULA (California State University, Los Angeles).
 
 CAPE predicts carbon risk in supply chain decisions using ERPsim simulation data, before orders become late. SAP Green Ledger records emissions after the fact; CAPE flags risk at the moment a fulfillment decision is made.
 
@@ -132,14 +136,31 @@ RESEARCH CONTEXT:
 - 60.8% of Scope 1 emissions come from inventory overstock — not shipping
 - LAX air cargo peaked March 2021 (254,057 tons), validating CAPE's highest-risk periods
 - Air freight carries ~47–50x the carbon per ton-mile vs. ground transport
-- Team: Daniel Ramirez (CIS), Brian (Finance/Supply Chain), Dr. Ming Wang (Faculty Advisor)
+- Team: Daniel Ramirez (CIS), Brian (Finance/Supply Chain), Dr. Ming Wang (Faculty Advisor)"""
+
+    if search_results:
+        results_text = "\n\n".join(
+            f"Title: {r['title']}\nURL: {r['url']}\nDate: {r['date'] or 'unknown'}\nContent: {r['content']}"
+            for r in search_results
+        )
+        prompt += f"""
+
+CURRENT WEB SEARCH RESULTS (live data retrieved for this question):
+{results_text}
+
+When answering, draw on these search results for current information. Cite each source you use at the end of your response in this format:
+Source: [Title], [URL], [Date]"""
+
+    prompt += """
 
 RESPONSE GUIDELINES:
-- CAPE/carbon/supply chain questions: answer directly and authoritatively from the data above. If the data does not contain enough information to answer clearly, say so explicitly. No source citation needed — the data is the ERPsim dataset.
-- General knowledge or external questions: answer helpfully. At the end of the response, include a source line in this exact format: "Source: [website or organization], [Author or Publisher if known], [Year if known]". If multiple sources apply, list each on its own line.
-- Current events, news, or real-time information: answer based on training data, clearly note the information may be outdated, include the source line, and recommend the user verify with a current source.
-- Greetings and casual conversation: respond naturally, no source needed.
-Keep all responses under 200 words."""
+- CAPE/carbon/supply chain questions: answer directly from the CAPE data above. No citation needed — the source is the ERPsim dataset.
+- Questions with search results: use the search results as your primary source for current information; relate findings back to CAPE data where relevant; cite each source used.
+- General knowledge without search results: answer helpfully and note if information may be from outdated training data.
+- Greetings and casual conversation: respond naturally, no citation needed.
+Keep all responses under 250 words."""
+
+    return prompt
 
 
 # ── Pattern matching ──────────────────────────────────────────────────────────
@@ -293,6 +314,63 @@ def _pattern_answer(q, ctx):
     return None
 
 
+# ── Web search ───────────────────────────────────────────────────────────────
+_SEARCH_TRIGGERS = [
+    # Time-sensitive
+    "today", "current", "now", "recent", "latest", "this year", "this month",
+    "this week", "news", "event", "happening", "right now", "currently",
+    "2024", "2025", "2026",
+    # External benchmarks / comparisons
+    "industry", "benchmark", "standard", "average", "compared to",
+    "other companies", "other businesses", "regulation", "law", "policy",
+    "market", "price", "rate", "trend", "global", "worldwide",
+    # CAPE + external hybrids
+    "affect our business", "impact our", "affect cape", "affect our risk",
+    "affect our carbon", "affect our supply chain", "freight rate",
+    "shipping cost", "fuel price", "carbon tax", "emissions regulation",
+]
+
+def _should_search(question):
+    ql = question.lower()
+    return any(t in ql for t in _SEARCH_TRIGGERS)
+
+
+def _tavily_search(question):
+    if not TAVILY_API_KEY:
+        return [], "TAVILY_API_KEY not loaded"
+    payload = json.dumps({
+        "api_key": TAVILY_API_KEY,
+        "query": question,
+        "search_depth": "basic",
+        "max_results": 3,
+        "include_answer": False,
+    }).encode("utf-8")
+    req = Request(
+        _TAVILY_URL, data=payload,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        results = []
+        for r in data.get("results", []):
+            results.append({
+                "title":   r.get("title", ""),
+                "url":     r.get("url", ""),
+                "date":    r.get("published_date", ""),
+                "content": r.get("content", "")[:600],
+            })
+        return results, None
+    except Exception as e:
+        body = ""
+        try:
+            body = e.read().decode("utf-8")
+        except Exception:
+            pass
+        return [], f"Search: {type(e).__name__}: {e}{(' — ' + body) if body else ''}"
+
+
 # ── LLM calls ─────────────────────────────────────────────────────────────────
 def _groq_answer(question, system_prompt):
     if not GROQ_API_KEY:
@@ -355,23 +433,35 @@ def _gemini_answer(question, system_prompt):
 
 
 def get_answer(question, ctx):
+    # CAPE-specific questions: answered instantly from the dataset, no search needed
     answer = _pattern_answer(question, ctx)
     if answer:
-        return answer, None
-    system_prompt = _build_system_prompt(ctx)
+        return answer, None, False
+
+    # Determine whether to search and run search if applicable
+    search_results = []
+    search_err = None
+    searched = False
+    if TAVILY_API_KEY and _should_search(question):
+        search_results, search_err = _tavily_search(question)
+        searched = True
+
+    system_prompt = _build_system_prompt(ctx, search_results if search_results else None)
+
     answer, groq_err = _groq_answer(question, system_prompt)
     if answer:
-        return answer, None
+        return answer, None, searched
     answer, gemini_err = _gemini_answer(question, system_prompt)
     if answer:
-        return answer, None
-    errors = [e for e in [groq_err, gemini_err] if e]
+        return answer, None, searched
+
+    errors = [e for e in [search_err, groq_err, gemini_err] if e]
     return (
         "I can answer questions about CAPE risk scores, carbon emissions by scope or type, "
         "overstock penalties, late orders, the risk formula, Round 3 analysis, LAX air cargo, "
         "the Random Forest model, and how CAPE compares to SAP Green Ledger. "
         "Try one of the suggested questions in the sidebar."
-    ), errors or None
+    ), errors or None, searched
 
 
 # ── Page ──────────────────────────────────────────────────────────────────────
@@ -408,7 +498,7 @@ with st.sidebar:
     st.markdown("### Suggested questions")
     for s in SUGGESTIONS:
         if st.button(s, use_container_width=True, key=f"sug_{s}"):
-            answer, _ = get_answer(s, ctx)
+            answer, _, _ = get_answer(s, ctx)
             st.session_state.cape_messages.append({"role": "user",      "content": s})
             st.session_state.cape_messages.append({"role": "assistant", "content": answer})
             st.rerun()
@@ -418,21 +508,25 @@ with st.sidebar:
         st.rerun()
     st.divider()
     if GROQ_API_KEY or GEMINI_API_KEY:
-        st.success("AI Assistant: Online")
+        search_status = " + Web Search" if TAVILY_API_KEY else ""
+        st.success(f"AI Assistant: Online{search_status}")
     else:
         st.warning("AI Assistant: Offline\n\nAdd `GROQ_API_KEY` or `GEMINI_API_KEY` to Streamlit secrets to enable AI responses.")
+    if not TAVILY_API_KEY and (GROQ_API_KEY or GEMINI_API_KEY):
+        st.info("Add `TAVILY_API_KEY` to Streamlit secrets to enable live web search.")
 
 for msg in st.session_state.cape_messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-if prompt := st.chat_input("Ask anything — CAPE data, general knowledge, or casual questions..."):
+if prompt := st.chat_input("Ask anything — CAPE data, current events, or general questions..."):
     st.session_state.cape_messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
     with st.chat_message("assistant"):
-        with st.spinner("Thinking..."):
-            answer, errors = get_answer(prompt, ctx)
+        spinner_msg = "Searching the web..." if (TAVILY_API_KEY and _should_search(prompt)) else "Thinking..."
+        with st.spinner(spinner_msg):
+            answer, errors, searched = get_answer(prompt, ctx)
         st.markdown(answer)
         if errors:
             with st.expander("AI diagnostic"):
