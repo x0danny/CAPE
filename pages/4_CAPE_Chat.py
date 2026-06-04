@@ -94,6 +94,9 @@ def load_cape_context():
 
 # ── System prompt ─────────────────────────────────────────────────────────────
 def _build_system_prompt(ctx, search_results=None):
+    from datetime import date
+    today = date.today().strftime("%B %d, %Y")
+
     hr = ctx["high_risk"]
     hr_list = ", ".join(
         f"{r['period']} (score: {r['cape_risk_score']:.3f})"
@@ -107,6 +110,8 @@ def _build_system_prompt(ctx, search_results=None):
     late_pct = ctx["late_orders"] / ctx["total_orders"] * 100
 
     prompt = f"""You are CAPE AI, an assistant for the Carbon-Aware Predictive Engine — an NSF-funded research project at CSULA (California State University, Los Angeles).
+
+Today's date is {today}.
 
 CAPE predicts carbon risk in supply chain decisions using ERPsim simulation data, before orders become late. SAP Green Ledger records emissions after the fact; CAPE flags risk at the moment a fulfillment decision is made.
 
@@ -140,7 +145,7 @@ RESEARCH CONTEXT:
 
     if search_results:
         results_text = "\n\n".join(
-            f"Title: {r['title']}\nURL: {r['url']}\nDate: {r['date'] or 'unknown'}\nContent: {r['content']}"
+            f"Title: {r['title']}\nURL: {r['url']}\nDate: {r['date'] or 'not specified'}\nContent: {r['content']}"
             for r in search_results
         )
         prompt += f"""
@@ -148,16 +153,22 @@ RESEARCH CONTEXT:
 CURRENT WEB SEARCH RESULTS (live data retrieved for this question):
 {results_text}
 
-When answering, draw on these search results for current information. Cite each source you use at the end of your response in this format:
-Source: [Title], [URL], [Date]"""
+Instructions for using search results:
+- Use the search results as your primary source for any current or real-world information.
+- Always connect findings back to what they mean for CAPE's focus areas: carbon risk, supply chain disruptions, freight costs, emissions regulations, or overstock risk.
+- At the end of your response, list each source you used as a numbered reference in this exact format:
+  [1] Title — URL (Date)
+  [2] Title — URL (Date)
+- Only include sources you actually referenced in the response."""
 
     prompt += """
 
 RESPONSE GUIDELINES:
-- CAPE/carbon/supply chain questions: answer directly from the CAPE data above. No citation needed — the source is the ERPsim dataset.
-- Questions with search results: use the search results as your primary source for current information; relate findings back to CAPE data where relevant; cite each source used.
-- General knowledge without search results: answer helpfully and note if information may be from outdated training data.
-- Greetings and casual conversation: respond naturally, no citation needed.
+- CAPE data questions: answer directly and authoritatively from the dataset above. No citation needed.
+- Questions with search results: lead with the insight relevant to CAPE/supply chain, then cite sources as a numbered list at the end.
+- General knowledge without search results: answer helpfully; note if the information is from training data and may not reflect the latest developments.
+- Greetings and casual conversation: respond naturally and professionally; no citation needed.
+- Never start a response with "I'm not sure" or "I don't know" — state what you do know, then note any limitations.
 Keep all responses under 250 words."""
 
     return prompt
@@ -335,12 +346,31 @@ def _should_search(question):
     return any(t in ql for t in _SEARCH_TRIGGERS)
 
 
+_CAPE_SEARCH_BIAS = (
+    "supply chain carbon emissions logistics freight shipping "
+    "air cargo overstock inventory regulations"
+)
+
+_BUSINESS_TRIGGERS = [
+    "affect our business", "affect my business", "impact our", "impact my",
+    "our supply chain", "our carbon", "our risk", "our company",
+    "current events", "news", "what is happening", "what's happening",
+]
+
+def _build_search_query(question):
+    ql = question.lower()
+    if any(t in ql for t in _BUSINESS_TRIGGERS):
+        return f"{question} {_CAPE_SEARCH_BIAS}"
+    return question
+
+
 def _tavily_search(question):
     if not TAVILY_API_KEY:
         return [], "TAVILY_API_KEY not loaded"
+    query = _build_search_query(question)
     payload = json.dumps({
         "api_key": TAVILY_API_KEY,
-        "query": question,
+        "query": query,
         "search_depth": "basic",
         "max_results": 3,
         "include_answer": False,
