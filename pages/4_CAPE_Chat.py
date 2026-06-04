@@ -21,8 +21,21 @@ if _env_path.exists():
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 GROQ_API_KEY   = os.environ.get("GROQ_API_KEY", "")
-_GEMINI_URL    = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent"
-_GROQ_URL      = "https://api.groq.com/openai/v1/chat/completions"
+
+# Streamlit Cloud secrets are not auto-injected into os.environ — read directly
+if not GEMINI_API_KEY:
+    try:
+        GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY", "")
+    except Exception:
+        pass
+if not GROQ_API_KEY:
+    try:
+        GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "")
+    except Exception:
+        pass
+
+_GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent"
+_GROQ_URL   = "https://api.groq.com/openai/v1/chat/completions"
 
 # ── Data ──────────────────────────────────────────────────────────────────────
 @st.cache_data
