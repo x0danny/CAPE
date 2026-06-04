@@ -23,18 +23,15 @@ GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 GROQ_API_KEY   = os.environ.get("GROQ_API_KEY", "")
 
 # Streamlit Cloud secrets are not auto-injected into os.environ — read directly
-if not GEMINI_API_KEY:
-    try:
+try:
+    if not GEMINI_API_KEY:
         GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY", "")
-    except Exception:
-        pass
-if not GROQ_API_KEY:
-    try:
+    if not GROQ_API_KEY:
         GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "")
-    except Exception:
-        pass
+except Exception:
+    pass
 
-_GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+_GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
 _GROQ_URL   = "https://api.groq.com/openai/v1/chat/completions"
 
 # ── Data ──────────────────────────────────────────────────────────────────────
@@ -297,32 +294,6 @@ def _pattern_answer(q, ctx):
 
 
 # ── LLM calls ─────────────────────────────────────────────────────────────────
-def _gemini_answer(question, system_prompt):
-    if not GEMINI_API_KEY:
-        return None, "GEMINI_API_KEY not loaded"
-    payload = json.dumps({
-        "contents": [{"parts": [{"text": question}]}],
-        "systemInstruction": {"parts": [{"text": system_prompt}]},
-        "generationConfig": {"maxOutputTokens": 450, "temperature": 0.2},
-    }).encode("utf-8")
-    req = Request(
-        _GEMINI_URL, data=payload,
-        headers={"Content-Type": "application/json", "x-goog-api-key": GEMINI_API_KEY},
-        method="POST",
-    )
-    try:
-        with urlopen(req, timeout=10) as resp:
-            result = json.loads(resp.read().decode("utf-8"))
-        return result["candidates"][0]["content"]["parts"][0]["text"].strip(), None
-    except Exception as e:
-        body = ""
-        try:
-            body = e.read().decode("utf-8")
-        except Exception:
-            pass
-        return None, f"Gemini: {type(e).__name__}: {e}{(' — ' + body) if body else ''}"
-
-
 def _groq_answer(question, system_prompt):
     if not GROQ_API_KEY:
         return None, "GROQ_API_KEY not loaded"
@@ -337,11 +308,15 @@ def _groq_answer(question, system_prompt):
     }).encode("utf-8")
     req = Request(
         _GROQ_URL, data=payload,
-        headers={"Content-Type": "application/json", "Authorization": f"Bearer {GROQ_API_KEY}"},
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {GROQ_API_KEY}",
+            "User-Agent": "CAPE-Dashboard/1.0",
+        },
         method="POST",
     )
     try:
-        with urlopen(req, timeout=10) as resp:
+        with urlopen(req, timeout=15) as resp:
             result = json.loads(resp.read().decode("utf-8"))
         return result["choices"][0]["message"]["content"].strip(), None
     except Exception as e:
@@ -351,6 +326,32 @@ def _groq_answer(question, system_prompt):
         except Exception:
             pass
         return None, f"Groq: {type(e).__name__}: {e}{(' — ' + body) if body else ''}"
+
+
+def _gemini_answer(question, system_prompt):
+    if not GEMINI_API_KEY:
+        return None, "GEMINI_API_KEY not loaded"
+    payload = json.dumps({
+        "contents": [{"parts": [{"text": question}]}],
+        "systemInstruction": {"parts": [{"text": system_prompt}]},
+        "generationConfig": {"maxOutputTokens": 450, "temperature": 0.2},
+    }).encode("utf-8")
+    req = Request(
+        _GEMINI_URL, data=payload,
+        headers={"Content-Type": "application/json", "x-goog-api-key": GEMINI_API_KEY},
+        method="POST",
+    )
+    try:
+        with urlopen(req, timeout=15) as resp:
+            result = json.loads(resp.read().decode("utf-8"))
+        return result["candidates"][0]["content"]["parts"][0]["text"].strip(), None
+    except Exception as e:
+        body = ""
+        try:
+            body = e.read().decode("utf-8")
+        except Exception:
+            pass
+        return None, f"Gemini: {type(e).__name__}: {e}{(' — ' + body) if body else ''}"
 
 
 def get_answer(question, ctx):
@@ -416,10 +417,10 @@ with st.sidebar:
         st.session_state.cape_messages = []
         st.rerun()
     st.divider()
-    if GEMINI_API_KEY or GROQ_API_KEY:
+    if GROQ_API_KEY or GEMINI_API_KEY:
         st.success("AI Assistant: Online")
     else:
-        st.warning("AI Assistant: Offline\n\nAdd `GEMINI_API_KEY` or `GROQ_API_KEY` to a `.env` file in the repo root to enable AI responses.")
+        st.warning("AI Assistant: Offline\n\nAdd `GROQ_API_KEY` or `GEMINI_API_KEY` to Streamlit secrets to enable AI responses.")
 
 for msg in st.session_state.cape_messages:
     with st.chat_message(msg["role"]):
