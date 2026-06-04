@@ -34,7 +34,7 @@ if not GROQ_API_KEY:
     except Exception:
         pass
 
-_GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent"
+_GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
 _GROQ_URL   = "https://api.groq.com/openai/v1/chat/completions"
 
 # ── Data ──────────────────────────────────────────────────────────────────────
@@ -299,7 +299,7 @@ def _pattern_answer(q, ctx):
 # ── LLM calls ─────────────────────────────────────────────────────────────────
 def _gemini_answer(question, system_prompt):
     if not GEMINI_API_KEY:
-        return None
+        return None, "GEMINI_API_KEY not loaded"
     payload = json.dumps({
         "contents": [{"parts": [{"text": question}]}],
         "systemInstruction": {"parts": [{"text": system_prompt}]},
@@ -313,14 +313,14 @@ def _gemini_answer(question, system_prompt):
     try:
         with urlopen(req, timeout=10) as resp:
             result = json.loads(resp.read().decode("utf-8"))
-        return result["candidates"][0]["content"]["parts"][0]["text"].strip()
-    except Exception:
-        return None
+        return result["candidates"][0]["content"]["parts"][0]["text"].strip(), None
+    except Exception as e:
+        return None, f"Gemini: {type(e).__name__}: {e}"
 
 
 def _groq_answer(question, system_prompt):
     if not GROQ_API_KEY:
-        return None
+        return None, "GROQ_API_KEY not loaded"
     payload = json.dumps({
         "model": "llama-3.1-8b-instant",
         "messages": [
@@ -338,25 +338,29 @@ def _groq_answer(question, system_prompt):
     try:
         with urlopen(req, timeout=10) as resp:
             result = json.loads(resp.read().decode("utf-8"))
-        return result["choices"][0]["message"]["content"].strip()
-    except Exception:
-        return None
+        return result["choices"][0]["message"]["content"].strip(), None
+    except Exception as e:
+        return None, f"Groq: {type(e).__name__}: {e}"
 
 
 def get_answer(question, ctx):
     answer = _pattern_answer(question, ctx)
     if answer:
-        return answer
+        return answer, None
     system_prompt = _build_system_prompt(ctx)
-    answer = _gemini_answer(question, system_prompt) or _groq_answer(question, system_prompt)
+    answer, gemini_err = _gemini_answer(question, system_prompt)
     if answer:
-        return answer
+        return answer, None
+    answer, groq_err = _groq_answer(question, system_prompt)
+    if answer:
+        return answer, None
+    errors = [e for e in [gemini_err, groq_err] if e]
     return (
         "I can answer questions about CAPE risk scores, carbon emissions by scope or type, "
         "overstock penalties, late orders, the risk formula, Round 3 analysis, LAX air cargo, "
         "the Random Forest model, and how CAPE compares to SAP Green Ledger. "
         "Try one of the suggested questions in the sidebar."
-    )
+    ), errors or None
 
 
 # ── Page ──────────────────────────────────────────────────────────────────────
@@ -393,8 +397,9 @@ with st.sidebar:
     st.markdown("### Suggested questions")
     for s in SUGGESTIONS:
         if st.button(s, use_container_width=True, key=f"sug_{s}"):
+            answer, _ = get_answer(s, ctx)
             st.session_state.cape_messages.append({"role": "user",      "content": s})
-            st.session_state.cape_messages.append({"role": "assistant", "content": get_answer(s, ctx)})
+            st.session_state.cape_messages.append({"role": "assistant", "content": answer})
             st.rerun()
     st.divider()
     if st.button("Clear conversation", use_container_width=True):
@@ -410,14 +415,18 @@ for msg in st.session_state.cape_messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-if prompt := st.chat_input("Ask about carbon risk, emissions, periods, or the CAPE methodology..."):
+if prompt := st.chat_input("Ask anything — CAPE data, general knowledge, or casual questions..."):
     st.session_state.cape_messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
     with st.chat_message("assistant"):
         with st.spinner("Thinking..."):
-            answer = get_answer(prompt, ctx)
+            answer, errors = get_answer(prompt, ctx)
         st.markdown(answer)
+        if errors:
+            with st.expander("AI diagnostic"):
+                for e in errors:
+                    st.caption(e)
     st.session_state.cape_messages.append({"role": "assistant", "content": answer})
 
 if not st.session_state.cape_messages:
