@@ -6,6 +6,7 @@ st.set_page_config(page_title="CAPE Data Upload", page_icon="📁", layout="wide
 
 st.title("📁 Data Upload")
 st.markdown("**Test CAPE with your own ERPsim data**")
+
 st.caption(
     "Every team that runs the ERPsim simulation makes different decisions — different pricing, "
     "different order quantities, different timing — so their carbon outcomes will differ. "
@@ -76,7 +77,6 @@ def _file_info(path: Path):
 
 
 # ── Page ──────────────────────────────────────────────────────────────────────
-st.title("📁 Data Upload")
 st.markdown("**Replace or augment CAPE datasets with your own ERPsim export files.**")
 st.caption(
     "Uploaded files are validated for required columns before replacing the existing data. "
