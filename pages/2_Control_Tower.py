@@ -170,10 +170,38 @@ for _, row in high_risk.sort_values('cape_risk_score', ascending=False).iterrows
         st.write(f"In period {row['period']}, carbon costs per dollar of revenue reached {row['co2e_per_dollar']:.4f} kg CO2e — above the safe threshold of 0.09. Overstock penalties hit {row['overstock_co2e']:,.0f} kg CO2e from inventory sitting idle due to delayed orders.")
 
         st.markdown("**What should have been done:**")
-        st.write("1. Flag orders at risk of delay 1-2 periods earlier using the CAPE risk score")
-        st.write("2. Reduce reorder quantities to prevent overstock buildup")
-        st.write("3. Avoid air freight escalation — each air shipment carries 47-50x the carbon of ground freight per ton-mile")
-        st.write("4. Alert the operations manager before the period starts, not after")
+        intensity = row['co2e_per_dollar']
+        overstock = row['overstock_co2e']
+        late_pct = row['late_pct'] if pd.notna(row['late_pct']) else 0
+        risk = row['cape_risk_score']
+        period = row['period']
+
+        rec_num = 1
+        st.write(f"{rec_num}. Flag orders entering {period} for delay risk — a CAPE score of {risk:.3f} would have been detectable 1-2 steps earlier, giving the operations team time to act.")
+        rec_num += 1
+
+        if overstock > 8000:
+            st.write(f"{rec_num}. Overstock penalty of {overstock:,.0f} kg CO2e indicates severe inventory buildup. Reorder quantities should have been cut 20-30% in the prior period to prevent warehouse accumulation.")
+        elif overstock > 3000:
+            st.write(f"{rec_num}. Overstock penalty of {overstock:,.0f} kg CO2e is above normal. A modest reduction in reorder quantities the prior step would have reduced idle inventory carbon.")
+        else:
+            st.write(f"{rec_num}. Overstock penalty was relatively contained at {overstock:,.0f} kg CO2e — the primary driver here was carbon intensity from delivery patterns, not inventory buildup.")
+        rec_num += 1
+
+        if late_pct >= 80:
+            st.write(f"{rec_num}. With {late_pct:.0f}% of orders arriving late, this period had a near-complete delivery failure. An escalation protocol should have triggered at the start of the period — not after.")
+        elif late_pct >= 40:
+            st.write(f"{rec_num}. With {late_pct:.0f}% late orders, more than one-third of deliveries were delayed. Proactive supplier communication one step earlier could have prevented a portion of these delays.")
+        elif late_pct == 0:
+            st.write(f"{rec_num}. No orders were recorded as late in {period} — the elevated carbon intensity came from accumulated overstock from prior periods, not new delays in this step.")
+        rec_num += 1
+
+        if intensity > 0.15:
+            st.write(f"{rec_num}. Carbon intensity of {intensity:.4f} kg CO2e per dollar is critically high — {((intensity/0.09)-1)*100:.0f}% above the safe threshold. Any air freight escalation here would have multiplied the carbon cost 47-50x per ton-mile.")
+        elif intensity > 0.12:
+            st.write(f"{rec_num}. Carbon intensity of {intensity:.4f} kg CO2e per dollar is significantly above the 0.09 threshold. Shifting even a portion of fulfillment to lower-carbon channels would have measurably reduced exposure.")
+        else:
+            st.write(f"{rec_num}. Carbon intensity of {intensity:.4f} kg CO2e per dollar is moderately elevated. Combined with the overstock penalty, total carbon exposure for this period exceeded acceptable levels.")
 
 st.divider()
 
