@@ -7,7 +7,7 @@ from sklearn.preprocessing import MinMaxScaler
 st.set_page_config(page_title="CAPE Dashboard", page_icon="🌿", layout="wide")
 
 st.title("🌿 CAPE — Carbon-Aware Predictive Engine")
-st.markdown("**Predictive Analytics on Carbon-Awareness of LAX Logistics** | Dr. Ming Wang · Brian · Daniel Ramirez")
+st.markdown("**Predictive Analytics on Carbon-Awareness of LAX Logistics** | Dr. Ming Wang · Brian Ta · Daniel Ramirez")
 st.caption("This page shows carbon exposure across all 38 simulation periods — which periods were high risk, why, and how the findings connect to 20 years of real LAX air freight data.")
 st.divider()
 
