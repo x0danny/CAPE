@@ -422,6 +422,35 @@ def main():
     )
     st.divider()
 
+    # ── Key finding FIRST ─────────────────────────────────────────────────────
+    period_df["round_id"] = period_df["label"].str.split("-").str[0]
+    sorted_rounds = sorted(period_df["round_id"].unique())
+    r2_id = sorted_rounds[1] if len(sorted_rounds) > 1 else None
+    r3_id = sorted_rounds[2] if len(sorted_rounds) > 2 else None
+    r2 = period_df[period_df["round_id"] == r2_id] if r2_id else pd.DataFrame()
+    r3 = period_df[period_df["round_id"] == r3_id] if r3_id else pd.DataFrame()
+    r2_rev  = r2["revenue_m"].sum()
+    r3_rev  = r3["revenue_m"].sum()
+    r2_risk = r2["risk"].mean()
+    r3_risk = r3["risk"].mean()
+    rev_delta  = ((r3_rev  - r2_rev)  / r2_rev  * 100) if r2_rev  > 0 else None
+    risk_delta = ((r3_risk - r2_risk) / r2_risk * 100) if r2_risk > 0 else None
+    best_type  = product_df.loc[product_df["intensity"].idxmin(), "product_type"]
+    worst_type = product_df.loc[product_df["intensity"].idxmax(), "product_type"]
+    best_name  = product_df.loc[product_df["intensity"].idxmin(), "product"]
+    worst_name = product_df.loc[product_df["intensity"].idxmax(), "product"]
+    ratio      = product_df["intensity"].max() / product_df["intensity"].min()
+    rev_str  = f"**{rev_delta:.0f}%**"  if rev_delta  is not None else "a different amount"
+    risk_str = f"**{risk_delta:.0f}%**" if risk_delta is not None else "at a higher rate"
+    st.warning(
+        f"🔍 **Key Finding:** From Round 2 to Round 3, revenue went up {rev_str} while "
+        f"average carbon risk climbed {risk_str} over the same stretch. "
+        f"{best_name} ({best_type}) had the lowest carbon intensity and "
+        f"{worst_name} ({worst_type}) the highest — a **{ratio:.1f}x** gap. "
+        f"Shifting the sales mix toward lower-intensity products reduces carbon exposure without giving up revenue."
+    )
+    st.divider()
+
     # ── KPI cards ─────────────────────────────────────────────────────────────
     total_rev     = product_df["revenue_m"].sum()
     avg_intensity = (product_df["intensity"] * product_df["revenue_m"]).sum() / product_df["revenue_m"].sum()
@@ -485,48 +514,8 @@ def main():
     )
     st.plotly_chart(chart_region_bar(region_df), use_container_width=True)
 
-    # ── Key finding ───────────────────────────────────────────────────────────
     st.divider()
-
-    # Round IDs may be integers (1,2,3,4) or strings (R1,R2,R3)
-    # Use positional sorting so it works either way
-    period_df["round_id"] = period_df["label"].str.split("-").str[0]
-    sorted_rounds = sorted(period_df["round_id"].unique())
-
-    r2_id = sorted_rounds[1] if len(sorted_rounds) > 1 else None
-    r3_id = sorted_rounds[2] if len(sorted_rounds) > 2 else None
-
-    r2 = period_df[period_df["round_id"] == r2_id] if r2_id else pd.DataFrame()
-    r3 = period_df[period_df["round_id"] == r3_id] if r3_id else pd.DataFrame()
-
-    r2_rev  = r2["revenue_m"].sum()
-    r3_rev  = r3["revenue_m"].sum()
-    r2_risk = r2["risk"].mean()
-    r3_risk = r3["risk"].mean()
-
-    rev_delta  = ((r3_rev  - r2_rev)  / r2_rev  * 100) if r2_rev  > 0 else None
-    risk_delta = ((r3_risk - r2_risk) / r2_risk * 100) if r2_risk > 0 else None
-
-    best_type  = product_df.loc[product_df["intensity"].idxmin(), "product_type"]
-    worst_type = product_df.loc[product_df["intensity"].idxmax(), "product_type"]
-    best_name  = product_df.loc[product_df["intensity"].idxmin(), "product"]
-    worst_name = product_df.loc[product_df["intensity"].idxmax(), "product"]
-    ratio      = product_df["intensity"].max() / product_df["intensity"].min()
-
-    rev_str  = f"**{rev_delta:.0f}%**"  if rev_delta  is not None else "a different amount"
-    risk_str = f"**{risk_delta:.0f}%**" if risk_delta is not None else "at a higher rate"
-
-    st.info(
-        f"**Key finding: revenue growth and carbon risk do not move independently.** "
-        f"From Round 2 to Round 3, revenue went up {rev_str} while average carbon risk "
-        f"climbed {risk_str} over the same stretch. "
-        f"At the product level, {best_name} ({best_type}) had the lowest carbon intensity "
-        f"and {worst_name} ({worst_type}) the highest, a **{ratio:.1f}x** gap. "
-        f"Even a small spread like that adds up across thousands of transactions. "
-        f"Shifting the sales mix toward lower-intensity products is one practical way "
-        f"to reduce carbon exposure without giving up revenue.",
-        icon="🔍",
-    )
+    st.caption("Sales & Carbon Intelligence | SAIES Research | CSULA CIS | NSF Grant Project")
 
 
 main()
