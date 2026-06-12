@@ -4,6 +4,23 @@ from pathlib import Path
 
 st.set_page_config(page_title="CAPE Data Upload", page_icon="📁", layout="wide")
 
+st.title("📁 Data Upload")
+st.markdown("**Test CAPE with your own ERPsim data**")
+st.caption(
+    "Every team that runs the ERPsim simulation makes different decisions — different pricing, "
+    "different order quantities, different timing — so their carbon outcomes will differ. "
+    "Upload your own ERPsim export files here to run the full CAPE analysis on your team's data. "
+    "This makes CAPE a replicable framework, not just a one-time analysis of one dataset."
+)
+st.info(
+    "📌 **For researchers:** CAPE was built and validated on SAP ERPsim data provided by "
+    "Dr. Ming Wang via the SAP University Alliance. If you are running ERPsim at another "
+    "institution, your exported files will work here as long as they contain the required columns "
+    "listed below each upload field.",
+    icon="🔬"
+)
+st.divider()
+
 DATA_DIR = Path(__file__).parent.parent / "data"
 
 # Each dataset: display name → filename, preferred sheet, required columns
