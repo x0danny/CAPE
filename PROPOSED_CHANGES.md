@@ -44,9 +44,19 @@ Label x-axis as "Round 1" through "Round 38" — everyone understands "rounds" i
 
 Found during session — explore further in Claude Research:
 
-- **Airport Tracker (airporttracker.org/tracker/airports/lax/)** — CO₂ and air pollutant emissions from LAX flights (passenger, freight, private jets). Built by ODI Global, Transport & Environment, and ICCT. Could cross-check CAPE's emission estimates against an independent source.
-- **ISO 14083:2023** — Newest international standard for transport carbon accounting (referenced by carboncare.org). Could strengthen methodology citations alongside ICAO/DEFRA.
-- **Add to Claude Research prompt:** Include these as sources to investigate.
+- **Airport Tracker (airporttracker.org/tracker/airports/lax/)** — 2023 annual data:
+  - LAX is **#1 in the US** for total CO₂ emissions (worth adding to the site)
+  - Total flight emissions: **18.80 million tonnes CO₂**
+  - Freight emissions specifically: **3.31 million tonnes CO₂** (independent cross-check for CAPE's estimates)
+  - 18,181 freight flights = 6% of flights but disproportionate carbon share
+  - 70.9% of emissions from long-haul flights (supports our international routes finding)
+  - JFK, ORD, SFO listed as comparisons — aligns with research prompt
+  - Data source: ICCT (International Council on Clean Transportation)
+- **CarbonCare / ISO 14083:2023** — Current international standard for transport carbon accounting:
+  - Air freight uses great circle distance; road uses shortest feasible distance
+  - Air load factor: 80% for belly cargo, 70% for freighters
+  - Could strengthen methodology citations alongside ICAO/DEFRA
+- **Add to Claude Research prompt:** Include airporttracker.org as a source, and ask about ICCT freight emission data specifically.
 
 ## 6. Items Not Yet Addressed
 
