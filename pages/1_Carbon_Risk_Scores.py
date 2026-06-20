@@ -3,9 +3,6 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from sklearn.preprocessing import MinMaxScaler
-import sys
-from pathlib import Path
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from data_loader import load_erpsim, load_lax_aggregate, build_period_map, add_period_labels, ROUND_NAMES
 
 st.title("🌿 Carbon Risk Scores")

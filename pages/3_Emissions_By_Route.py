@@ -16,9 +16,6 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
-import sys
-from pathlib import Path
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from data_loader import load_lax_aggregate, load_lax_shipments
 
 TEAL   = "#1D9E75"

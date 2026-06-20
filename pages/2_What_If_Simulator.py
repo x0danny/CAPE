@@ -5,9 +5,6 @@ import plotly.graph_objects as go
 from sklearn.preprocessing import MinMaxScaler
 import warnings
 warnings.filterwarnings('ignore')
-import sys
-from pathlib import Path
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from data_loader import load_erpsim, build_period_map, add_period_labels
 
 st.title("⚡ What-If Simulator")
