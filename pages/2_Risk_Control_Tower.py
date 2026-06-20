@@ -5,31 +5,19 @@ import plotly.graph_objects as go
 from sklearn.preprocessing import MinMaxScaler
 import warnings
 warnings.filterwarnings('ignore')
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from data_loader import load_erpsim
 
 st.set_page_config(page_title="AI Supply Chain Control Tower", page_icon="⚡", layout="wide")
 
 st.title("⚡ AI Supply Chain Control Tower")
 st.markdown("**Order Risk Intelligence + Carbon Exposure | LAX Logistics**")
-
-st.markdown("##### Team")
-st.markdown("Brian Ta · Daniel Ramirez")
-st.markdown("##### Advisor")
-st.markdown("Dr. Ming Wang")
-st.caption("CSULA CIS | SAIES Research | NSF Grant Project")
-st.divider()
-
 st.caption("Every number has a plain English explanation. No jargon, no guessing.")
 st.divider()
 
-@st.cache_data
-def load_data():
-    sales = pd.read_excel('data/Sales.xlsx', sheet_name='Sales')
-    carbon = pd.read_excel('data/Carbon Emissions.xlsx', sheet_name='Carbon_Emissions')
-    po = pd.read_excel('data/Purchase Orders.xlsx', sheet_name='Purchase_Orders')
-    inventory = pd.read_excel('data/Inventory.xlsx', sheet_name='Inventory')
-    return sales, carbon, po, inventory
-
-sales, carbon, po, inventory = load_data()
+sales, carbon, po, inventory, _fin = load_erpsim()
 
 po['delivery_steps'] = (po['GOODS_RECEIPT_ROUND'] - po['SIM_ROUND']) * 10 + \
                        (po['GOODS_RECEIPT_STEP'] - po['SIM_STEP'])

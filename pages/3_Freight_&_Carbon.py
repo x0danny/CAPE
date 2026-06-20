@@ -16,9 +16,11 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
+import sys
 from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from data_loader import load_lax_aggregate, load_lax_shipments
 
-# ── Color palette ─────────────────────────────────────────────────────────────
 TEAL   = "#1D9E75"
 AMBER  = "#BA7517"
 RED    = "#E24B4A"
@@ -32,39 +34,22 @@ GROUND_CARBON_FACTOR = 0.023
 AVG_HAUL_MILES = 2500
 
 
-# ── Data loading ──────────────────────────────────────────────────────────────
-
-@st.cache_data
-def load_lax_aggregate():
-    data_dir = Path(__file__).parent.parent / "data"
-    try:
-        lax = pd.read_csv(data_dir / "lax_cargo.csv")
-        lax['AirCargoTons'] = lax['AirCargoTons'].str.replace(',', '').astype(float)
-        lax['date'] = pd.to_datetime(lax['ReportPeriod'], format='%b %Y')
-        lax['year'] = lax['date'].dt.year
-        lax['month'] = lax['date'].dt.month
-        return lax, True
-    except Exception as e:
-        st.warning(f"Aggregate data load error: {e}")
-        return None, False
-
-
-@st.cache_data
-def load_lax_shipments():
-    data_dir = Path(__file__).parent.parent / "data"
-    try:
-        sales = pd.read_excel(data_dir / "LAX_Sales.xlsx")
-        carbon = pd.read_excel(data_dir / "LAX_Carbon_Emissions.xlsx", sheet_name="Carbon_Emissions")
-        return sales, carbon, True
-    except Exception:
-        return None, None, False
-
-
 # ── Page ──────────────────────────────────────────────────────────────────────
 
 def main():
-    lax, agg_ok = load_lax_aggregate()
-    sales, carbon, ship_ok = load_lax_shipments()
+    try:
+        lax = load_lax_aggregate()
+        agg_ok = True
+    except Exception:
+        lax = None
+        agg_ok = False
+
+    try:
+        sales, carbon = load_lax_shipments()
+        ship_ok = True
+    except Exception:
+        sales, carbon = None, None
+        ship_ok = False
 
     if not agg_ok and not ship_ok:
         st.error("Could not load LAX data. Ensure data files are in the `data/` folder.")
@@ -74,12 +59,7 @@ def main():
     mail = lax[lax['CargoType'] == 'Mail'] if agg_ok else pd.DataFrame()
 
     # ── Header ────────────────────────────────────────────────────────────────
-    st.markdown("### 📊 Sales & Carbon Intelligence")
-    st.markdown("##### Team")
-    st.markdown("Brian Ta · Daniel Ramirez")
-    st.markdown("##### Advisor")
-    st.markdown("Dr. Ming Wang")
-    st.caption("CSULA CIS | SAIES Research | NSF Grant Project")
+    st.markdown("### 📊 Freight & Carbon Intelligence")
     st.caption(
         "How much carbon does LAX air freight generate? Which routes and directions "
         "are the most carbon-intensive? This page estimates carbon exposure from "

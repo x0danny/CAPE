@@ -438,11 +438,6 @@ def get_answer(question, ctx):
 # ── Page ──────────────────────────────────────────────────────────────────────
 st.title("💬 CAPE AI")
 st.markdown("**Ask anything about LAX air freight, carbon risk, supply chain logistics, or CAPE research.**")
-st.markdown("##### Team")
-st.markdown("Brian Ta · Daniel Ramirez")
-st.markdown("##### Advisor")
-st.markdown("Dr. Ming Wang")
-st.caption("CSULA CIS | SAIES Research | NSF Grant Project")
 st.caption("Answers are grounded in 18 years of LAX air freight data (2006–2023). Questions about current events use live web search with citations.")
 st.divider()
 

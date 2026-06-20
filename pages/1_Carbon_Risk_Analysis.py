@@ -3,32 +3,19 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from sklearn.preprocessing import MinMaxScaler
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from data_loader import load_erpsim, load_lax_aggregate
 
 st.set_page_config(page_title="CAPE Dashboard", page_icon="🌿", layout="wide")
 
 st.title("🌿 CAPE — Carbon-Aware Predictive Engine")
 st.markdown("**AI-Driven Analytics Platform for Carbon-Awareness of LAX Logistics**")
-
-st.markdown("##### Team")
-st.markdown("Brian Ta · Daniel Ramirez")
-st.markdown("##### Advisor")
-st.markdown("Dr. Ming Wang")
-st.caption("CSULA CIS | SAIES Research | NSF Grant Project")
-st.divider()
-
 st.caption("This page shows carbon exposure across all 38 simulation periods — which periods were high risk, why, and how the findings connect to 18 years of real LAX air freight data (2006–2023).")
 st.divider()
 
-# Load data
-@st.cache_data
-def load_data():
-    sales = pd.read_excel('data/Sales.xlsx', sheet_name='Sales')
-    carbon = pd.read_excel('data/Carbon Emissions.xlsx', sheet_name='Carbon_Emissions')
-    inventory = pd.read_excel('data/Inventory.xlsx', sheet_name='Inventory')
-    financial = pd.read_excel('data/Fianancial Postings.xlsx', sheet_name='Financial_Postings')
-    return sales, carbon, inventory, financial
-
-sales, carbon, inventory, financial = load_data()
+sales, carbon, _po, inventory, financial = load_erpsim()
 
 # Build CAPE summary
 cape_join = pd.merge(sales, carbon, on=['SIM_ROUND', 'SIM_STEP'], how='inner')
@@ -137,9 +124,8 @@ st.divider()
 st.subheader("✈️ LAX Air Freight Validation — 18 Years of Data (2006–2023)")
 st.caption("This section connects CAPE's simulation findings to real-world LAX air freight data. The question: does LAX air cargo data support CAPE's predictions about carbon risk during supply chain stress?")
 
-lax = pd.read_csv('data/lax_cargo.csv')
-lax['AirCargoTons'] = lax['AirCargoTons'].str.replace(',', '').astype(float)
-lax['ReportPeriod'] = pd.to_datetime(lax['ReportPeriod'], format='%b %Y')
+lax = load_lax_aggregate()
+lax['ReportPeriod'] = lax['date']
 lax_freight = lax[lax['CargoType'] == 'Freight']
 lax_monthly = lax_freight.groupby('ReportPeriod').agg(
     total_tons=('AirCargoTons', 'sum')

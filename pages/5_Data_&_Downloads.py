@@ -6,12 +6,6 @@ st.set_page_config(page_title="CAPE Data & Downloads", page_icon="📁", layout=
 
 st.title("📁 Data & Downloads")
 st.markdown("**Download CAPE datasets or upload your own LAX data**")
-st.markdown("##### Team")
-st.markdown("Brian Ta · Daniel Ramirez")
-st.markdown("##### Advisor")
-st.markdown("Dr. Ming Wang")
-st.caption("CSULA CIS | SAIES Research | NSF Grant Project")
-
 st.caption(
     "CAPE analyzes LAX air freight data to predict carbon risk from supply chain mode-switching. "
     "Upload updated LAX cargo data to extend the analysis, or upload ERPsim files to retrain "
