@@ -9,10 +9,9 @@ st.title("🌿 Carbon Risk Scores")
 st.markdown("##### Which time periods had the highest carbon risk — and why?")
 st.caption("This page scores each of 38 simulation periods for carbon risk and connects the findings to 18 years of real LAX air freight data (2006–2023).")
 st.info(
-    "📌 **How to read the period labels:** The simulation runs across 4 phases with multiple periods each. "
+    "📌 **How to read the timeline:** The simulation covers 38 weeks across 4 phases. "
     "Phase 1 (Startup) → Phase 2 (Growth) → Phase 3 (Stress) → Phase 4 (Recovery). "
-    "Each period represents a business cycle where orders are placed, shipped, and delivered. "
-    "Higher period numbers = later in the simulation."
+    "Each week represents one business cycle where orders are placed, shipped, and delivered."
 )
 st.divider()
 
@@ -194,7 +193,7 @@ st.markdown("""
 **Why this matters for carbon:** Air freight produces 47-50x more carbon per ton-mile than ground transport. Even a temporary spike in air cargo — like the 2021 surge — generates outsized carbon emissions. CAPE's value is detecting the conditions that trigger these mode-switching events **before** they happen.
 """)
 
-st.info("📍 **The CAPE connection:** CAPE's highest-risk simulation periods (Periods 24–28, during the Stress phase) show the same pattern as 2020–2021 at LAX — supply chain stress forces a switch to high-carbon air freight. CAPE catches this at the order level, before the freight mode decision is made.")
+st.info("📍 **The CAPE connection:** CAPE's highest-risk weeks (Weeks 24–28, during the Stress phase) show the same pattern as 2020–2021 at LAX — supply chain stress forces a switch to high-carbon air freight. CAPE catches this at the order level, before the freight mode decision is made.")
 
 st.divider()
 st.caption("CAPE — Carbon-Aware Predictive Engine | AI-Driven Analytics Platform | SAIES Research | CSULA CIS | NSF Grant Project")

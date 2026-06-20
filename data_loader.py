@@ -16,10 +16,10 @@ def load_erpsim():
 
 
 def period_label(sim_round, sim_step, all_periods):
-    """Convert R-S notation to 'Period N' for non-technical display."""
+    """Convert R-S notation to 'Week N' for non-technical display."""
     key = (sim_round, sim_step)
     if key in all_periods:
-        return f"Period {all_periods[key]}"
+        return f"Week {all_periods[key]}"
     return f"R{sim_round}-S{sim_step}"
 
 
