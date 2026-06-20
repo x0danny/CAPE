@@ -19,12 +19,12 @@ CAPE is a predictive carbon intelligence platform that analyzes LAX air freight 
 Most enterprise carbon tools tell you what you already emitted — like a bill after you spent the money.
 **CAPE tells you what you are about to emit before the decision is made.**
 
-Using a machine learning model trained on supply chain simulation data, CAPE achieves **94.2% cross-validation accuracy**
-predicting which fulfillment periods will generate elevated carbon exposure.
-The key finding: **carbon emissions are the #1 predictor of order lateness** — carbon and operational risk are statistically linked.
+Using a machine learning model, CAPE achieves **94.2% accuracy** predicting which
+supply chain conditions will generate dangerous carbon exposure.
+The key finding: **carbon emissions are the #1 predictor of order lateness** — carbon risk and delivery risk move together.
 
-The findings are corroborated by **18 years of LAX air freight data** and **Port of LA container volume** from the 2021 supply chain surge,
-grounding the simulation results in the real-world logistics corridor most relevant to this research.
+CAPE's predictions are supported by **18 years of real LAX air freight data** and **Port of LA shipping records**,
+confirming that the patterns CAPE detects match what actually happened during the 2021 supply chain crisis.
 """)
 
 st.markdown(

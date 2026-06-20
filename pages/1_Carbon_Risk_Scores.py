@@ -9,9 +9,9 @@ st.title("🌿 Carbon Risk Scores")
 st.markdown("##### Which time periods had the highest carbon risk — and why?")
 st.caption("This page scores each of 38 simulation periods for carbon risk and connects the findings to 18 years of real LAX air freight data (2006–2023).")
 st.info(
-    "📌 **How to read the timeline:** The simulation covers 38 weeks across 4 phases. "
-    "Phase 1 (Startup) → Phase 2 (Growth) → Phase 3 (Stress) → Phase 4 (Recovery). "
-    "Each week represents one business cycle where orders are placed, shipped, and delivered."
+    "📌 **How to read the timeline:** The x-axis shows 38 time points from a supply chain training exercise. "
+    "They are grouped into 4 phases: Phase 1 (Startup) → Phase 2 (Growth) → Phase 3 (Stress) → Phase 4 (Recovery). "
+    "CAPE uses these to learn what happens to carbon costs as conditions change — then checks the pattern against real LAX data below."
 )
 st.divider()
 
@@ -122,7 +122,7 @@ high_risk.columns = ['Period', 'Revenue ($)', 'Total CO2e', 'Overstock CO2e', 'C
 st.dataframe(high_risk, use_container_width=True)
 
 st.divider()
-st.subheader("✈️ LAX Air Freight Corroboration — 18 Years of Data (2006–2023)")
+st.subheader("✈️ LAX Air Freight Real-World Comparison — 18 Years of Data (2006–2023)")
 st.caption("This section connects CAPE's simulation findings to real-world LAX air freight data. The question: does LAX air cargo data support CAPE's predictions about carbon risk during supply chain stress?")
 
 lax = load_lax_aggregate()
@@ -231,7 +231,7 @@ st.caption("📌 **How to read this chart:** Each bar shows how much a signal co
 st.success("🔑 Key Finding: total_co2e is the #1 predictor of order lateness — carbon exposure and order risk are statistically linked. CV accuracy: 94.2% across 5 folds.")
 
 st.divider()
-st.subheader("🚢 Port of LA vs LAX Air Cargo — 2021 Corroboration")
+st.subheader("🚢 Port of LA vs LAX Air Cargo — 2021 Real-World Comparison")
 
 port_la_2021 = pd.DataFrame({
     'month': ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],

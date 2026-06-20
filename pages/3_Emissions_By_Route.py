@@ -242,9 +242,10 @@ def main():
             "ICAO Carbon Emissions Calculator + UK DEFRA/BEIS GHG Conversion Factors (emission factors)."
         )
         st.warning(
-            "📌 **Data transparency:** Freight tonnage is from LAWA public records. Carrier names, product categories, "
-            "and delivery status are **representative values assigned for research demonstration** — LAWA does not publish "
-            "shipment-level detail. Carbon emissions are calculated, not measured. See the Data & Downloads page for full methodology."
+            "📌 **What's real and what's modeled:** The freight tonnage comes from real LAWA public records. "
+            "The airline names, product types, and delivery statuses are **example values we created for this analysis** — "
+            "LAWA only publishes monthly totals, not details about individual shipments. "
+            "Carbon emissions are calculated using internationally recognized methods (ICAO/DEFRA), not directly measured."
         )
         st.divider()
 

@@ -32,11 +32,11 @@ st.header("1. Late orders are the #1 driver of avoidable carbon emissions")
 col1, col2 = st.columns([2, 1])
 with col1:
     st.markdown("""
-CAPE's simulation model found that **57.9% of all orders arrived late** — and late orders are
+In CAPE's training data, **57.9% of all orders arrived late** — and late orders are
 the single biggest cause of carbon waste in the supply chain.
 
 Here's why: when an order arrives late, inventory piles up in warehouses. That idle inventory
-generates a carbon penalty from storage, cooling, and handling. In the simulation, **overstock
+generates a carbon penalty from storage, cooling, and handling. **Overstock
 from late orders accounted for over a third of all direct emissions**.
 
 The machine learning model confirmed this statistically: **total CO₂ emissions are the #1
@@ -44,9 +44,9 @@ predictor of whether an order will be late**, with 94.2% accuracy. Carbon risk a
 risk are not independent — they move together.
 """)
 with col2:
-    st.metric("Orders Late", "57.9%", help="Percentage of simulation orders that arrived late (2 steps instead of 1)")
-    st.metric("Model Accuracy", "94.2%", help="Random Forest classifier, 5-fold cross-validation")
-    st.metric("Top Predictor", "Total CO₂e", help="The feature most predictive of order lateness")
+    st.metric("Orders Late", "57.9%", help="Percentage of orders in the training data that arrived late")
+    st.metric("Model Accuracy", "94.2%", help="The model correctly predicts order risk 94.2% of the time (5-fold cross-validation)")
+    st.metric("Top Predictor", "Carbon Emissions", help="The signal most predictive of order lateness")
 
 st.divider()
 
@@ -209,38 +209,39 @@ st.divider()
 # ══════════════════════════════════════════════════════════════════════════════
 # LIMITATIONS
 # ══════════════════════════════════════════════════════════════════════════════
-st.header("⚠️ Limitations & Transparency")
+st.header("⚠️ What CAPE Can and Cannot Claim")
+st.caption("Honest disclosure of how the project works and where its limits are.")
 st.markdown("""
-This section acknowledges what CAPE can and cannot claim, so reviewers and users
-can evaluate the findings with full context.
+**1. How the model was built**
+CAPE's risk prediction model was trained on a supply chain training exercise (SAP ERPsim),
+not on real company order data. The model learned patterns of how late orders lead to
+carbon waste — then we checked whether those same patterns appear in real LAX freight data.
+They do, but showing the same pattern is not the same as proving one causes the other.
 
-**1. Simulation vs. real-world data**
-CAPE's risk model was trained on ERPsim — a classroom supply chain simulation, not production
-ERP data. The model has not been tested on real order-level data from LAX or any logistics company.
-The simulation results and LAX freight trends are presented as **corroboration** (they show the
-same pattern), not as formal statistical validation.
+**2. What the LAX analysis is based on**
+The freight tonnage and trends come from **real public data** published by Los Angeles World
+Airports (LAWA). However, the per-shipment details (which airline carried what, what product
+was shipped, whether it was late) are **example values created for this research** — LAWA
+only publishes monthly totals, not individual shipment records. The Data & Downloads page
+has full documentation of what is real vs. modeled.
 
-**2. Correlation, not causation**
-The link between supply chain stress in the simulation and air freight surges at LAX is
-**correlational**. CAPE shows that these patterns move together — it does not prove that one
-causes the other.
+**3. How carbon emissions were calculated**
+We used internationally recognized methods (ICAO Carbon Emissions Calculator and UK
+government DEFRA/BEIS conversion factors) to estimate emissions — these are the same
+methods used by airlines and governments worldwide. But they are estimates, not direct
+measurements. The actual carbon depends on the specific aircraft, how full it was, and
+the exact route flown.
 
-**3. Estimated emission factors**
-Per-shipment carbon emissions use published ICAO/DEFRA conversion factors, not direct
-measurements. The ~49x air-vs-ground multiplier is consistent with EPA and industry
-estimates but varies by aircraft type, load factor, and route.
+**4. The "49x" air-vs-ground comparison**
+Based on the emission factors used in this project (ICAO/DEFRA), air freight produces
+approximately 49 times more carbon per ton-mile than ground transport. This is consistent
+with published industry estimates, but the exact multiplier varies by vehicle type and
+conditions.
 
-**4. Representative carrier and product data**
-The per-shipment LAX data (carriers, product categories, delivery status) includes
-**representative values assigned for research demonstration**. The LAWA Open Data Portal
-reports aggregate tonnage only — it does not publish carrier-level or shipment-level detail.
-This is fully documented in the Data Sources & Methodology document available on the
-Data & Downloads page.
-
-**5. Model reproducibility**
-The Random Forest model's feature importances are reported from the training notebook
-(`CAPE_Analysis`). The training code and parameters are available in the repository for
-replication, but the ERPsim data requires a SAP University Alliance license to regenerate.
+**5. Can other researchers reproduce this?**
+The LAX data is freely available from the City of LA Open Data Portal. The model training
+code is in the project repository. However, the ERPsim training data requires a
+SAP University Alliance license — contact your institution's SAP representative for access.
 """)
 
 st.divider()
