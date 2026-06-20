@@ -10,7 +10,7 @@ st.markdown("##### Which time periods had the highest carbon risk — and why?")
 st.caption("This page scores each of 38 simulation periods for carbon risk and connects the findings to 18 years of real LAX air freight data (2006–2023).")
 st.info(
     "📌 **How to read the timeline:** The x-axis shows 38 time points from a supply chain training exercise. "
-    "They are grouped into 4 phases: Phase 1 (Startup) → Phase 2 (Growth) → Phase 3 (Stress) → Phase 4 (Recovery). "
+    "They are grouped into 4 phases: Phase 1 (Early) → Phase 2 (Growth) → Phase 3 (Peak Risk) → Phase 4 (Late). "
     "CAPE uses these to learn what happens to carbon costs as conditions change — then checks the pattern against real LAX data below."
 )
 st.divider()
@@ -187,13 +187,13 @@ st.markdown("""
 **What the data shows across 18 years:**
 - **2006–2009:** Freight dropped 21% during the financial crisis — companies shipped less of everything
 - **2010–2019:** Gradual recovery with steady growth, reaching pre-crisis levels by 2015
-- **2020–2021:** COVID disrupted ground supply chains, causing a massive surge in air freight (+22% from 2019 to 2021)
+- **2020–2021:** COVID disrupted ground supply chains, causing a massive surge in air freight (+31% from 2019 to 2021)
 - **2022–2023:** Sharp correction as supply chains normalized, dropping 34% from the 2021 peak
 
 **Why this matters for carbon:** Air freight produces 47-50x more carbon per ton-mile than ground transport. Even a temporary spike in air cargo — like the 2021 surge — generates outsized carbon emissions. CAPE's value is detecting the conditions that trigger these mode-switching events **before** they happen.
 """)
 
-st.info("📍 **The CAPE connection:** CAPE's highest-risk weeks (Weeks 24–28, during the Stress phase) show the same pattern as 2020–2021 at LAX — supply chain stress forces a switch to high-carbon air freight. CAPE catches this at the order level, before the freight mode decision is made.")
+st.info("📍 **The CAPE connection:** CAPE's highest-risk time points (24–28, during Phase 3) show the same pattern as 2020–2021 at LAX — supply chain stress forces a switch to high-carbon air freight. CAPE catches this at the order level, before the freight mode decision is made.")
 
 st.divider()
 st.caption("CAPE — Carbon-Aware Predictive Engine | AI-Driven Analytics Platform | SAIES Research | CSULA CIS | NSF Grant Project")

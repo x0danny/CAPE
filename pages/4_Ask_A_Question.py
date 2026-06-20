@@ -180,7 +180,7 @@ KEY EVENTS IN THE DATA:
 - 2006-2007: Pre-crisis baseline ~2M tons/year
 - 2008-2009: Financial crisis caused 21% freight decline
 - 2010-2019: Gradual recovery, reaching pre-crisis levels by 2015
-- 2020-2021: COVID disrupted ground supply chains, air freight surged +22% (mode-switching)
+- 2020-2021: COVID disrupted ground supply chains, air freight surged +31% from 2019 to 2021 (mode-switching)
 - 2021 March: Peak month — 254,057 tons (supply chain crisis peak)
 - 2022-2023: Sharp correction as supply chains normalized (-34% from 2021 peak)
 

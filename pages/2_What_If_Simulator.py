@@ -257,7 +257,7 @@ with col_d:
                   color='avg_risk', color_continuous_scale='RdYlGn_r',
                   labels={'avg_risk': 'Average Risk Score', 'phase': 'Simulation Phase'})
     st.plotly_chart(fig4, use_container_width=True)
-    st.caption("📌 **What this means:** Phase 3 (Stress) had the highest average risk — when the supply chain was under pressure, late orders spiked, overstock piled up, and carbon costs climbed across the board.")
+    st.caption("📌 **What this means:** Phase 3 (Peak Risk) had the highest average risk — late orders spiked, overstock piled up, and carbon costs climbed across the board.")
 
 st.divider()
 

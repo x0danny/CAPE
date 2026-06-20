@@ -37,8 +37,8 @@ def add_period_labels(df, period_map):
     return df
 
 
-ROUND_NAMES = {1: "Phase 1 (Startup)", 2: "Phase 2 (Growth)",
-               3: "Phase 3 (Stress)", 4: "Phase 4 (Recovery)"}
+ROUND_NAMES = {1: "Phase 1 (Early)", 2: "Phase 2 (Growth)",
+               3: "Phase 3 (Peak Risk)", 4: "Phase 4 (Late)"}
 
 
 @st.cache_data

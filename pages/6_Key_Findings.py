@@ -199,7 +199,8 @@ st.divider()
 
 st.info(
     "💡 **The bottom line:** Air freight produces ~49x more carbon than ground transport per ton-mile "
-    "([EPA, 2023](https://www.epa.gov/greenvehicles/fast-facts-transportation-greenhouse-gas-emissions)). "
+    "(based on [ICAO Carbon Emissions Calculator](https://icec.icao.int/) and "
+    "[UK DEFRA/BEIS GHG Conversion Factors](https://www.gov.uk/government/collections/government-conversion-factors-for-company-reporting)). "
     "Every shipment that can be kept on the ground — or prevented from becoming a late, emergency "
     "air shipment — is a direct carbon reduction. CAPE makes this visible before the decision is made."
 )
