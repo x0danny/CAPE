@@ -54,20 +54,27 @@ with col3:
     )
 
 st.markdown("")
-col4, col5 = st.columns(2)
+col4, col5, col6 = st.columns(3)
 with col4:
+    st.page_link("pages/6_Key_Findings.py", label="What did CAPE find?", icon="🔑", use_container_width=True)
+    st.error(
+        "**Key Findings**\n\n"
+        "The project's conclusions: what CAPE found, why it matters, "
+        "and what LAX and logistics operators should do about it."
+    )
+with col5:
     st.page_link("pages/4_Ask_A_Question.py", label="Have a question? Ask CAPE AI", icon="💬", use_container_width=True)
     st.info(
         "**Ask a Question**\n\n"
         "Type any question about LAX air freight, carbon risk, or supply chain logistics. "
-        "Get answers grounded in real data — with live web search for current events."
+        "Get answers grounded in real data."
     )
-with col5:
+with col6:
     st.page_link("pages/5_Data_&_Downloads.py", label="Download the data", icon="📁", use_container_width=True)
     st.success(
         "**Data & Downloads**\n\n"
         "Download all CAPE datasets for your own analysis, "
-        "or upload updated LAX data to extend the research."
+        "or upload updated LAX data."
     )
 
 st.divider()
