@@ -3,10 +3,13 @@ import streamlit as st
 st.title("🌿 CAPE — Carbon-Aware Predictive Engine")
 st.markdown("**AI-Driven Analytics Platform for Carbon-Awareness of LAX Logistics**")
 
-st.markdown("##### Team")
-st.markdown("Brian Ta · Daniel Ramirez")
-st.markdown("##### Advisor")
-st.markdown("Dr. Ming Wang")
+col_team, col_advisor = st.columns(2)
+with col_team:
+    st.markdown("##### Team")
+    st.markdown("Brian Ta · Daniel Ramirez")
+with col_advisor:
+    st.markdown("##### Advisor")
+    st.markdown("Dr. Ming Wang")
 st.caption("CSULA CIS | SAIES Research | NSF Grant Project")
 st.divider()
 
