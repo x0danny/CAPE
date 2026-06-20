@@ -9,7 +9,7 @@ from data_loader import load_erpsim, build_period_map, add_period_labels
 
 st.title("⚡ What-If Simulator")
 st.markdown("##### What would happen to carbon risk if we changed our supply chain decisions?")
-st.caption("Drag the sliders to test different strategies. Every number has a plain English explanation — no jargon.")
+st.caption("An AI Supply Chain Control Tower — drag the sliders to test different strategies. Every number has a plain English explanation — no jargon.")
 st.divider()
 
 sales, carbon, po, inventory, _fin = load_erpsim()
