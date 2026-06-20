@@ -10,11 +10,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from data_loader import load_erpsim
 
-st.set_page_config(page_title="AI Supply Chain Control Tower", page_icon="⚡", layout="wide")
+st.set_page_config(page_title="What-If Simulator", page_icon="⚡", layout="wide")
 
-st.title("⚡ AI Supply Chain Control Tower")
-st.markdown("**Order Risk Intelligence + Carbon Exposure | LAX Logistics**")
-st.caption("Every number has a plain English explanation. No jargon, no guessing.")
+st.title("⚡ What-If Simulator")
+st.markdown("##### What would happen to carbon risk if we changed our supply chain decisions?")
+st.caption("Drag the sliders to test different strategies. Every number has a plain English explanation — no jargon.")
 st.divider()
 
 sales, carbon, po, inventory, _fin = load_erpsim()

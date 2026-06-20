@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from pathlib import Path
 
-st.set_page_config(page_title="CAPE Data & Downloads", page_icon="📁", layout="wide")
+st.set_page_config(page_title="Data & Downloads", page_icon="📁", layout="wide")
 
 st.title("📁 Data & Downloads")
 st.markdown("**Download CAPE datasets or upload your own LAX data**")

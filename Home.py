@@ -31,42 +31,42 @@ st.markdown("#### Explore the Platform")
 
 col1, col2, col3 = st.columns(3)
 with col1:
-    st.page_link("pages/1_Carbon_Risk_Analysis.py", label="Open Carbon Risk Analysis", icon="🌿", use_container_width=True)
+    st.page_link("pages/1_Carbon_Risk_Scores.py", label="Which periods were high risk?", icon="🌿", use_container_width=True)
     st.success(
-        "**Carbon Risk Analysis**\n\n"
-        "Carbon risk scores across 38 simulation periods, validated against 18 years of real LAX air freight data. "
-        "See which periods were high risk and why."
+        "**Carbon Risk Scores**\n\n"
+        "See which time periods had the highest carbon risk, why they were flagged, "
+        "and how the findings connect to 18 years of real LAX air freight data."
     )
 with col2:
-    st.page_link("pages/2_Risk_Control_Tower.py", label="Open Risk Control Tower", icon="⚡", use_container_width=True)
+    st.page_link("pages/2_What-If_Simulator.py", label="What if we changed our approach?", icon="⚡", use_container_width=True)
     st.info(
-        "**Risk Control Tower**\n\n"
-        "Interactive what-if sliders to simulate supply chain changes. "
-        "Plain English recommendations for every high-risk period."
+        "**What-If Simulator**\n\n"
+        "Drag sliders to simulate supply chain changes — fewer late orders, smaller orders, "
+        "more ground shipping — and see how carbon risk would change."
     )
 with col3:
-    st.page_link("pages/3_Freight_&_Carbon.py", label="Open Freight & Carbon", icon="📊", use_container_width=True)
+    st.page_link("pages/3_Emissions_By_Route.py", label="Which routes emit the most?", icon="📊", use_container_width=True)
     st.warning(
-        "**Freight & Carbon Intelligence**\n\n"
-        "Per-shipment carbon analysis by carrier, route, and product category. "
-        "Scope 1/2/3 breakdown using ICAO/DEFRA methodology."
+        "**Emissions by Route**\n\n"
+        "Which airlines, routes, and cargo types produce the most carbon at LAX? "
+        "Per-shipment analysis with real emission factors."
     )
 
 st.markdown("")
 col4, col5 = st.columns(2)
 with col4:
-    st.page_link("pages/4_Ask_CAPE_AI.py", label="Open Ask CAPE AI", icon="💬", use_container_width=True)
+    st.page_link("pages/4_Ask_A_Question.py", label="Have a question? Ask CAPE AI", icon="💬", use_container_width=True)
     st.info(
-        "**Ask CAPE AI**\n\n"
-        "Ask any question about LAX air freight, carbon risk, or supply chain logistics. "
-        "Answers grounded in real data with live web search for current events."
+        "**Ask a Question**\n\n"
+        "Type any question about LAX air freight, carbon risk, or supply chain logistics. "
+        "Get answers grounded in real data — with live web search for current events."
     )
 with col5:
-    st.page_link("pages/5_Data_&_Downloads.py", label="Open Data & Downloads", icon="📁", use_container_width=True)
+    st.page_link("pages/5_Data_&_Downloads.py", label="Download the data", icon="📁", use_container_width=True)
     st.success(
         "**Data & Downloads**\n\n"
-        "Download all CAPE datasets (LAWA, Freightos, ICAO/DEFRA) "
-        "or upload your own LAX data to extend the analysis."
+        "Download all CAPE datasets for your own analysis, "
+        "or upload updated LAX data to extend the research."
     )
 
 st.divider()

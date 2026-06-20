@@ -13,6 +13,7 @@ Author: Brian Ta · Daniel Ramirez | Advisor: Dr. Ming Wang | SAIES Research | C
 """
 
 import streamlit as st
+st.set_page_config(page_title="Emissions by Route", page_icon="📊", layout="wide")
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
@@ -59,12 +60,11 @@ def main():
     mail = lax[lax['CargoType'] == 'Mail'] if agg_ok else pd.DataFrame()
 
     # ── Header ────────────────────────────────────────────────────────────────
-    st.markdown("### 📊 Freight & Carbon Intelligence")
+    st.markdown("### 📊 Emissions by Route")
+    st.markdown("##### Which airlines, routes, and cargo types produce the most carbon at LAX?")
     st.caption(
-        "How much carbon does LAX air freight generate? Which routes and directions "
-        "are the most carbon-intensive? This page estimates carbon exposure from "
-        "18 years of LAX air cargo data and identifies where the biggest opportunities "
-        "for emissions reduction exist."
+        "This page breaks down carbon emissions by carrier, route, product type, and delivery status — "
+        "using 18 years of LAX air freight data and per-shipment analysis with ICAO/DEFRA emission factors."
     )
     st.divider()
 

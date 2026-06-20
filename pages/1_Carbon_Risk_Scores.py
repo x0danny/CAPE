@@ -8,11 +8,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from data_loader import load_erpsim, load_lax_aggregate
 
-st.set_page_config(page_title="CAPE Dashboard", page_icon="🌿", layout="wide")
+st.set_page_config(page_title="Carbon Risk Scores", page_icon="🌿", layout="wide")
 
-st.title("🌿 CAPE — Carbon-Aware Predictive Engine")
-st.markdown("**AI-Driven Analytics Platform for Carbon-Awareness of LAX Logistics**")
-st.caption("This page shows carbon exposure across all 38 simulation periods — which periods were high risk, why, and how the findings connect to 18 years of real LAX air freight data (2006–2023).")
+st.title("🌿 Carbon Risk Scores")
+st.markdown("##### Which time periods had the highest carbon risk — and why?")
+st.caption("This page scores each simulation period for carbon risk and connects the findings to 18 years of real LAX air freight data (2006–2023).")
 st.divider()
 
 sales, carbon, _po, inventory, financial = load_erpsim()
