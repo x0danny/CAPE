@@ -2,10 +2,10 @@ import streamlit as st
 import pandas as pd
 from pathlib import Path
 
-st.set_page_config(page_title="CAPE Data Upload", page_icon="📁", layout="wide")
+st.set_page_config(page_title="CAPE Data & Downloads", page_icon="📁", layout="wide")
 
-st.title("📁 Data Upload")
-st.markdown("**Upload LAX air freight data or ERPsim training data for CAPE analysis**")
+st.title("📁 Data & Downloads")
+st.markdown("**Download CAPE datasets or upload your own LAX data**")
 st.markdown("##### Team")
 st.markdown("Brian Ta · Daniel Ramirez")
 st.markdown("##### Advisor")
@@ -85,6 +85,45 @@ for i, (name, cfg) in enumerate(DATASETS.items()):
             st.metric(short_name, info, help=cfg["filename"])
         else:
             st.metric(short_name, "Missing", help=f"{cfg['filename']} not found in data/")
+
+st.divider()
+
+# ── Download section ──────────────────────────────────────────────────────────
+st.subheader("Download Data Files")
+st.caption("Download any of the CAPE datasets for your own analysis, review, or replication.")
+
+dl_cols = st.columns(len(DATASETS))
+for i, (name, cfg) in enumerate(DATASETS.items()):
+    file_path = DATA_DIR / cfg["filename"]
+    short_name = name.split(" (")[0]
+    with dl_cols[i]:
+        if file_path.exists():
+            with open(file_path, "rb") as f:
+                st.download_button(
+                    label=f"Download {short_name}",
+                    data=f.read(),
+                    file_name=cfg["filename"],
+                    mime="application/octet-stream",
+                    key=f"dl_{name}",
+                    use_container_width=True,
+                )
+            st.caption(cfg["description"])
+        else:
+            st.button(f"{short_name}", disabled=True, use_container_width=True, key=f"dl_miss_{name}")
+            st.caption("File not available")
+
+methodology_path = DATA_DIR / "CAPE_Data_Sources_Methodology.docx"
+if methodology_path.exists():
+    st.markdown("")
+    with open(methodology_path, "rb") as f:
+        st.download_button(
+            label="Download Data Sources & Methodology Document",
+            data=f.read(),
+            file_name="CAPE_Data_Sources_Methodology.docx",
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            key="dl_methodology",
+        )
+    st.caption("Full data provenance: what is sourced from LAWA, Freightos, and ICAO vs. what is modeled.")
 
 st.divider()
 

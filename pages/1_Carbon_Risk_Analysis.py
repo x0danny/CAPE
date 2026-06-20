@@ -52,13 +52,25 @@ cape_summary['overstock_scaled'] = scaler.fit_transform(cape_summary[['overstock
 cape_summary['cape_risk_score'] = (cape_summary['intensity_scaled'] * 0.70 + cape_summary['overstock_scaled'] * 0.30)
 cape_summary_sorted = cape_summary.sort_values(['SIM_ROUND', 'SIM_STEP'])
 
-# KPI row
-col1, col2, col3, col4, col5 = st.columns(5)
-col1.metric("Total CO2e", f"{carbon['TOTAL_CO2E_EMISSIONS'].sum():,.0f} kg")
-col2.metric("Overstock CO2e", f"{carbon[carbon['TYPE']=='Overstock']['TOTAL_CO2E_EMISSIONS'].sum():,.0f} kg")
-col3.metric("% of Scope 1", "60.8%")
-col4.metric("High Risk Periods", f"{len(cape_summary[cape_summary['cape_risk_score'] >= 0.6])}")
-col5.metric("Highest Risk Period", "R3-S6")
+total_co2e = carbon['TOTAL_CO2E_EMISSIONS'].sum()
+overstock_co2e = carbon[carbon['TYPE']=='Overstock']['TOTAL_CO2E_EMISSIONS'].sum()
+overstock_pct = overstock_co2e / total_co2e * 100
+high_risk_count = len(cape_summary[cape_summary['cape_risk_score'] >= 0.6])
+worst_period = cape_summary.loc[cape_summary['cape_risk_score'].idxmax(), 'period']
+
+col1, col2, col3 = st.columns(3)
+col1.metric("Total Carbon Emissions", f"{total_co2e:,.0f} kg CO₂e",
+            help="CO₂e = carbon dioxide equivalent. This is the total greenhouse gas output across all simulation periods.")
+col2.metric("Overstock Carbon Waste", f"{overstock_co2e:,.0f} kg CO₂e",
+            help=f"Carbon wasted on inventory sitting idle in warehouses — {overstock_pct:.0f}% of all direct (Scope 1) emissions.")
+col3.metric("High Risk Periods", f"{high_risk_count} of {len(cape_summary)}",
+            help="Periods where the CAPE risk score exceeded 0.6 — meaning both carbon intensity and overstock were dangerously high.")
+
+col4, col5 = st.columns(2)
+col4.metric("Worst Period", worst_period,
+            help="The simulation period with the highest CAPE risk score — carbon costs were at their peak here.")
+col5.metric("Overstock Share of Direct Emissions", f"{overstock_pct:.1f}%",
+            help="Scope 1 = direct emissions from operations. This shows how much came from idle inventory vs. shipping.")
 
 st.divider()
 
@@ -208,7 +220,7 @@ fig_imp = px.bar(
     x=importances_list,
     y=features_list,
     orientation='h',
-    title='CAPE Risk Model — Feature Importance (Trained on ERPsim Data)',
+    title='CAPE Risk Model — Feature Importance (Trained on Simulation Data, Applied to LAX)',
     labels={'x': 'Importance', 'y': 'Feature'},
     color=importances_list,
     color_continuous_scale='Blues'
@@ -220,8 +232,6 @@ st.success("🔑 Key Finding: total_co2e is the #1 predictor of order lateness �
 
 st.divider()
 st.subheader("🚢 Port of LA vs LAX Air Cargo — 2021 Validation")
-
-import plotly.graph_objects as go
 
 port_la_2021 = pd.DataFrame({
     'month': ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],

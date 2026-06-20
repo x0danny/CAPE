@@ -10,7 +10,7 @@ warnings.filterwarnings('ignore')
 st.set_page_config(page_title="AI Supply Chain Control Tower", page_icon="⚡", layout="wide")
 
 st.title("⚡ AI Supply Chain Control Tower")
-st.markdown("**Order Risk Intelligence + Carbon Exposure | ERPsim Data**")
+st.markdown("**Order Risk Intelligence + Carbon Exposure | LAX Logistics**")
 
 st.markdown("##### Team")
 st.markdown("Brian Ta · Daniel Ramirez")
@@ -84,11 +84,18 @@ with col2:
     st.metric("High Risk Periods", f"{len(high_risk)} of 38")
     st.caption("Time periods where carbon costs were unusually high. More high-risk periods = more money being spent on avoidable emissions.")
 with col3:
-    st.metric("Worst Period", "R3-S6")
-    st.caption("This period had the highest risk score (0.834). Carbon costs per dollar of revenue were nearly double the safe level.")
+    worst_idx = period_summary['cape_risk_score'].idxmax()
+    worst_p = period_summary.loc[worst_idx, 'period']
+    worst_score = period_summary.loc[worst_idx, 'cape_risk_score']
+    st.metric("Worst Period", worst_p)
+    st.caption(f"This period had the highest risk score ({worst_score:.3f}). Carbon costs per dollar of revenue were nearly double the safe level.")
 with col4:
-    st.metric("Overstock CO2e", "142,500 kg")
-    st.caption("Carbon wasted on inventory sitting in warehouses. That's 61% of all direct emissions — most of it preventable.")
+    total_overstock = period_summary['overstock_co2e'].sum()
+    total_co2e_all = period_summary['total_co2e'].sum()
+    overstock_share = total_overstock / total_co2e_all * 100 if total_co2e_all > 0 else 0
+    st.metric("Overstock Carbon Waste", f"{total_overstock:,.0f} kg",
+              help="CO₂e = carbon dioxide equivalent — the standard unit for measuring greenhouse gas emissions.")
+    st.caption(f"Carbon wasted on inventory sitting in warehouses. That's {overstock_share:.0f}% of all direct emissions — most of it preventable.")
 
 st.divider()
 
