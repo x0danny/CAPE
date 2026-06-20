@@ -52,7 +52,7 @@ Found during session — explore further in Claude Research:
   - 70.9% of emissions from long-haul flights (supports our international routes finding)
   - JFK, ORD, SFO listed as comparisons — aligns with research prompt
   - Data source: ICCT (International Council on Clean Transportation)
-- **CarbonCare / ISO 14083:2023** — Current international standard for transport carbon accounting:
+- **CarbonCare (carboncare.org/en/co2-emissions-calculator) / ISO 14083:2023** — Current international standard for transport carbon accounting:
   - Air freight uses great circle distance; road uses shortest feasible distance
   - Air load factor: 80% for belly cargo, 70% for freighters
   - Could strengthen methodology citations alongside ICAO/DEFRA
