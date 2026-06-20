@@ -238,7 +238,7 @@ def main():
     st.markdown("**Monthly Freight Pattern (averaged across all years)**")
     st.caption(
         "Air freight has a seasonal cycle. Understanding when volumes peak helps predict "
-        "when carbon risk is highest and when mode-switching is most likely."
+        "when carbon risk is highest and when mode-switching (companies shifting cargo from ground to air transport) is most likely."
     )
     month_names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
     monthly_avg = freight.groupby('month')['AirCargoTons'].mean().reset_index()
@@ -272,6 +272,13 @@ def main():
         total_cost_usd = carbon['Carbon_Cost_USD'].sum()
 
         # ── Scope breakdown ──────────────────────────────────────────────────
+        st.markdown(
+            "Carbon emissions are categorized into three **scopes**: "
+            "**Scope 1** is direct emissions from the flight itself (jet fuel burned). "
+            "**Scope 2** is electricity used at airport facilities and ground operations. "
+            "**Scope 3** is everything upstream — fuel production, aircraft manufacturing, and support services. "
+            "Scope 1 is by far the largest, which is why reducing flight distance or shifting to ground transport has the biggest impact."
+        )
         scope_col1, scope_col2, scope_col3, scope_col4 = st.columns(4)
         with scope_col1:
             st.metric("Total CO2e", f"{total_co2e/1e9:.2f}B kg",

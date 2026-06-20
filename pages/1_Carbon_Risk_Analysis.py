@@ -172,9 +172,12 @@ with col_e:
     st.metric("Peak Volume", "254,057 tons")
     st.caption("The highest single month in 18 years — driven by the global supply chain crisis.")
 with col_f:
-    st.metric("2006 vs 2023", "-7.2%")
-    st.metric("2006 Volume", "2,024,065 tons")
-    st.caption("Overall freight volume declined slightly over 18 years, but the spikes during crises are what matter for carbon.")
+    first_full = lax_yearly.iloc[0]
+    last_full = lax_yearly[lax_yearly['Year'] == lax_yearly['Year'].max() - 1].iloc[0] if len(lax_yearly) > 1 else first_full
+    vol_change = (last_full['total_tons'] / first_full['total_tons'] - 1) * 100
+    st.metric(f"{int(first_full['Year'])} vs {int(last_full['Year'])}", f"{vol_change:+.1f}%")
+    st.metric(f"{int(first_full['Year'])} Volume", f"{first_full['total_tons']:,.0f} tons")
+    st.caption(f"Comparing full calendar years. The spikes during crises are what matter for carbon, not long-term averages.")
 with col_g:
     st.metric("CAPE Highest Risk", "R3-S6")
     st.metric("Peak Carbon Intensity", "0.158 kg CO2e/$")
@@ -253,4 +256,5 @@ fig7.update_layout(
 )
 st.plotly_chart(fig7, use_container_width=True)
 st.caption("📌 **How to read this chart:** The blue bars show shipping containers handled by the Port of LA. The red line shows air cargo at LAX. When both spike at the same time (March 2021), it means the entire freight system was under stress — ground AND air. That's when carbon emissions are at their highest.")
-st.info("📍 **March 2021:** Port of LA handled 957,599 containers (113% above the prior year) while LAX air cargo peaked at 254,057 tons. When ground shipping gets overwhelmed, companies switch to air — producing 47-50x more carbon per ton-mile. This is exactly the pattern CAPE is designed to predict and prevent.")
+st.info("📍 **March 2021:** Port of LA handled 957,599 TEUs while LAX air cargo peaked at 254,057 tons. When ground shipping gets overwhelmed, companies switch to air — producing 47-50x more carbon per ton-mile. This is exactly the pattern CAPE is designed to predict and prevent.")
+st.caption("Port of LA data source: [Port of Los Angeles Container Statistics](https://www.portoflosangeles.org/business/statistics/container-statistics). LAX data source: LAWA Open Data Portal.")

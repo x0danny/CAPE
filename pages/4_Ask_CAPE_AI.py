@@ -1,7 +1,6 @@
 import re
 import streamlit as st
 import pandas as pd
-import numpy as np
 import os
 import json
 from pathlib import Path
@@ -153,7 +152,6 @@ def load_cape_context():
 
 # ── System prompt ─────────────────────────────────────────────────────────────
 def _build_system_prompt(ctx, search_results=None):
-    from datetime import date
     today = date.today().strftime("%B %d, %Y")
 
     yearly_str = "\n".join(f"  {y}: {v:,.0f} tons" for y, v in ctx["yearly"].items())
@@ -347,12 +345,7 @@ def _tavily_search(question):
             })
         return results, None
     except Exception as e:
-        body = ""
-        try:
-            body = e.read().decode("utf-8")
-        except Exception:
-            pass
-        return [], f"Search: {type(e).__name__}: {e}{(' — ' + body) if body else ''}"
+        return [], f"Search: {type(e).__name__}: {e}"
 
 
 # ── LLM calls ─────────────────────────────────────────────────────────────────
@@ -382,12 +375,7 @@ def _groq_answer(question, system_prompt):
             result = json.loads(resp.read().decode("utf-8"))
         return result["choices"][0]["message"]["content"].strip(), None
     except Exception as e:
-        body = ""
-        try:
-            body = e.read().decode("utf-8")
-        except Exception:
-            pass
-        return None, f"Groq: {type(e).__name__}: {e}{(' — ' + body) if body else ''}"
+        return None, f"Groq: {type(e).__name__}: {e}"
 
 
 def _gemini_answer(question, system_prompt):
@@ -408,12 +396,7 @@ def _gemini_answer(question, system_prompt):
             result = json.loads(resp.read().decode("utf-8"))
         return result["candidates"][0]["content"]["parts"][0]["text"].strip(), None
     except Exception as e:
-        body = ""
-        try:
-            body = e.read().decode("utf-8")
-        except Exception:
-            pass
-        return None, f"Gemini: {type(e).__name__}: {e}{(' — ' + body) if body else ''}"
+        return None, f"Gemini: {type(e).__name__}: {e}"
 
 
 def _clean_response(text):
