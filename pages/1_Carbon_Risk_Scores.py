@@ -5,7 +5,7 @@ import plotly.graph_objects as go
 from sklearn.preprocessing import MinMaxScaler
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from data_loader import load_erpsim, load_lax_aggregate
 
 st.set_page_config(page_title="Carbon Risk Scores", page_icon="🌿", layout="wide")

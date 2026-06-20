@@ -38,7 +38,7 @@ with col1:
         "and how the findings connect to 18 years of real LAX air freight data."
     )
 with col2:
-    st.page_link("pages/2_What-If_Simulator.py", label="What if we changed our approach?", icon="⚡", use_container_width=True)
+    st.page_link("pages/2_What_If_Simulator.py", label="What if we changed our approach?", icon="⚡", use_container_width=True)
     st.info(
         "**What-If Simulator**\n\n"
         "Drag sliders to simulate supply chain changes — fewer late orders, smaller orders, "

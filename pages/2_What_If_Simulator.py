@@ -7,7 +7,7 @@ import warnings
 warnings.filterwarnings('ignore')
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from data_loader import load_erpsim
 
 st.set_page_config(page_title="What-If Simulator", page_icon="⚡", layout="wide")
