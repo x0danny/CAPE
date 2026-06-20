@@ -8,7 +8,7 @@ warnings.filterwarnings('ignore')
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from data_loader import load_erpsim
+from data_loader import load_erpsim, build_period_map, add_period_labels
 
 st.title("⚡ What-If Simulator")
 st.markdown("##### What would happen to carbon risk if we changed our supply chain decisions?")
@@ -16,6 +16,7 @@ st.caption("Drag the sliders to test different strategies. Every number has a pl
 st.divider()
 
 sales, carbon, po, inventory, _fin = load_erpsim()
+_period_map = build_period_map(sales)
 
 po['delivery_steps'] = (po['GOODS_RECEIPT_ROUND'] - po['SIM_ROUND']) * 10 + \
                        (po['GOODS_RECEIPT_STEP'] - po['SIM_STEP'])
@@ -35,7 +36,7 @@ sales_by_period = sales.groupby(['SIM_ROUND','SIM_STEP']).agg(
 
 period_summary = pd.merge(carbon_by_period, sales_by_period, on=['SIM_ROUND','SIM_STEP'], how='inner')
 period_summary['co2e_per_dollar'] = period_summary['total_co2e'] / period_summary['total_revenue']
-period_summary['period'] = 'R' + period_summary['SIM_ROUND'].astype(str) + '-S' + period_summary['SIM_STEP'].astype(str)
+period_summary = add_period_labels(period_summary, _period_map)
 
 late_by_period = po.groupby(['SIM_ROUND','SIM_STEP']).agg(
     total_orders=('is_late','count'),
@@ -250,14 +251,16 @@ with col_d:
         avg_late=('late_pct','mean'),
         total_co2e=('total_co2e','sum')
     ).reset_index()
-    round_summary['round'] = 'Round ' + round_summary['SIM_ROUND'].astype(str)
+    from data_loader import ROUND_NAMES
+    round_summary['phase'] = round_summary['SIM_ROUND'].map(
+        lambda r: ROUND_NAMES.get(r, f"Phase {r}"))
 
-    fig4 = px.bar(round_summary, x='round', y='avg_risk',
-                  title='Average Carbon Risk by Round',
+    fig4 = px.bar(round_summary, x='phase', y='avg_risk',
+                  title='Average Carbon Risk by Phase',
                   color='avg_risk', color_continuous_scale='RdYlGn_r',
-                  labels={'avg_risk': 'Average Risk Score', 'round': 'Simulation Round'})
+                  labels={'avg_risk': 'Average Risk Score', 'phase': 'Simulation Phase'})
     st.plotly_chart(fig4, use_container_width=True)
-    st.caption("📌 **What this means:** Round 3 had the highest average risk — something went systematically wrong. More late orders led to more overstock, which drove up carbon costs across the board.")
+    st.caption("📌 **What this means:** Phase 3 (Stress) had the highest average risk — when the supply chain was under pressure, late orders spiked, overstock piled up, and carbon costs climbed across the board.")
 
 st.divider()
 

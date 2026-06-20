@@ -6,14 +6,21 @@ from sklearn.preprocessing import MinMaxScaler
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from data_loader import load_erpsim, load_lax_aggregate
+from data_loader import load_erpsim, load_lax_aggregate, build_period_map, add_period_labels, ROUND_NAMES
 
 st.title("🌿 Carbon Risk Scores")
 st.markdown("##### Which time periods had the highest carbon risk — and why?")
-st.caption("This page scores each simulation period for carbon risk and connects the findings to 18 years of real LAX air freight data (2006–2023).")
+st.caption("This page scores each of 38 simulation periods for carbon risk and connects the findings to 18 years of real LAX air freight data (2006–2023).")
+st.info(
+    "📌 **How to read the period labels:** The simulation runs across 4 phases with multiple periods each. "
+    "Phase 1 (Startup) → Phase 2 (Growth) → Phase 3 (Stress) → Phase 4 (Recovery). "
+    "Each period represents a business cycle where orders are placed, shipped, and delivered. "
+    "Higher period numbers = later in the simulation."
+)
 st.divider()
 
 sales, carbon, _po, inventory, financial = load_erpsim()
+_period_map = build_period_map(sales)
 
 # Build CAPE summary
 cape_join = pd.merge(sales, carbon, on=['SIM_ROUND', 'SIM_STEP'], how='inner')
@@ -23,7 +30,7 @@ cape_summary = cape_join.groupby(['SIM_ROUND', 'SIM_STEP']).agg(
     num_orders=('SALES_ORDER_NUMBER', 'nunique')
 ).reset_index()
 cape_summary['co2e_per_dollar'] = cape_summary['total_co2e'] / cape_summary['total_revenue']
-cape_summary['period'] = 'R' + cape_summary['SIM_ROUND'].astype(str) + '-S' + cape_summary['SIM_STEP'].astype(str)
+cape_summary = add_period_labels(cape_summary, _period_map)
 
 overstock = carbon[carbon['TYPE'] == 'Overstock'].groupby(['SIM_ROUND', 'SIM_STEP']).agg(
     overstock_co2e=('TOTAL_CO2E_EMISSIONS', 'sum')
@@ -163,8 +170,10 @@ with col_f:
     st.metric(f"{int(first_full['Year'])} Volume", f"{first_full['total_tons']:,.0f} tons")
     st.caption(f"Comparing full calendar years. The spikes during crises are what matter for carbon, not long-term averages.")
 with col_g:
-    st.metric("CAPE Highest Risk", "R3-S6")
-    st.metric("Peak Carbon Intensity", "0.158 kg CO2e/$")
+    worst_p = cape_summary.loc[cape_summary['cape_risk_score'].idxmax(), 'period']
+    worst_intensity = cape_summary.loc[cape_summary['cape_risk_score'].idxmax(), 'co2e_per_dollar']
+    st.metric("CAPE Highest Risk", worst_p)
+    st.metric("Peak Carbon Intensity", f"{worst_intensity:.3f} kg CO₂e/$")
     st.caption("CAPE's riskiest simulation period mirrors the real-world pattern: supply chain stress → air freight surge → carbon spike.")
 
 st.divider()
@@ -188,7 +197,7 @@ st.markdown("""
 **Why this matters for carbon:** Air freight produces 47-50x more carbon per ton-mile than ground transport. Even a temporary spike in air cargo — like the 2021 surge — generates outsized carbon emissions. CAPE's value is detecting the conditions that trigger these mode-switching events **before** they happen.
 """)
 
-st.info("📍 **The CAPE connection:** CAPE's highest-risk simulation periods (R3-S6 through R3-S10) show the same pattern as 2020-2021 at LAX — supply chain stress forces a switch to high-carbon air freight. CAPE catches this at the order level, before the freight mode decision is made.")
+st.info("📍 **The CAPE connection:** CAPE's highest-risk simulation periods (Periods 24–28, during the Stress phase) show the same pattern as 2020–2021 at LAX — supply chain stress forces a switch to high-carbon air freight. CAPE catches this at the order level, before the freight mode decision is made.")
 
 st.divider()
 st.caption("CAPE — Carbon-Aware Predictive Engine | AI-Driven Analytics Platform | SAIES Research | CSULA CIS | NSF Grant Project")
