@@ -8,8 +8,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from data_loader import load_erpsim, load_lax_aggregate
 
-st.set_page_config(page_title="Carbon Risk Scores", page_icon="🌿", layout="wide")
-
 st.title("🌿 Carbon Risk Scores")
 st.markdown("##### Which time periods had the highest carbon risk — and why?")
 st.caption("This page scores each simulation period for carbon risk and connects the findings to 18 years of real LAX air freight data (2006–2023).")

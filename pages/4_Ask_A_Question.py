@@ -7,7 +7,6 @@ from pathlib import Path
 from urllib.request import Request, urlopen
 from datetime import date
 
-st.set_page_config(page_title="Ask a Question", page_icon="💬", layout="wide")
 
 # ── API keys ──────────────────────────────────────────────────────────────────
 _env_path = Path(__file__).parent.parent / ".env"
