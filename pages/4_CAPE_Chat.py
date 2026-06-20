@@ -1,11 +1,12 @@
 import re
 import streamlit as st
 import pandas as pd
-from sklearn.preprocessing import MinMaxScaler
+import numpy as np
 import os
 import json
 from pathlib import Path
 from urllib.request import Request, urlopen
+from datetime import date
 
 st.set_page_config(page_title="CAPE Chat", page_icon="💬", layout="wide")
 
@@ -24,7 +25,6 @@ GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 GROQ_API_KEY   = os.environ.get("GROQ_API_KEY", "")
 TAVILY_API_KEY = os.environ.get("TAVILY_API_KEY", "")
 
-# Streamlit Cloud secrets are not auto-injected into os.environ — read directly
 try:
     if not GEMINI_API_KEY:
         GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY", "")
@@ -43,54 +43,112 @@ _TAVILY_URL = "https://api.tavily.com/search"
 @st.cache_data
 def load_cape_context():
     data_dir = Path(__file__).parent.parent / "data"
+    ctx = {"error": None}
+
     try:
-        sales  = pd.read_excel(data_dir / "Sales.xlsx",            sheet_name="Sales")
-        carbon = pd.read_excel(data_dir / "Carbon Emissions.xlsx", sheet_name="Carbon_Emissions")
-        po     = pd.read_excel(data_dir / "Purchase Orders.xlsx",  sheet_name="Purchase_Orders")
-    except FileNotFoundError as e:
+        lax = pd.read_csv(data_dir / "lax_cargo.csv")
+        lax['AirCargoTons'] = lax['AirCargoTons'].str.replace(',', '').astype(float)
+        lax['date'] = pd.to_datetime(lax['ReportPeriod'], format='%b %Y')
+    except Exception as e:
         return {"error": str(e)}
 
-    cape_join = pd.merge(sales, carbon, on=["SIM_ROUND", "SIM_STEP"], how="inner")
-    period = cape_join.groupby(["SIM_ROUND", "SIM_STEP"]).agg(
-        total_revenue=("NET_VALUE", "sum"),
-        total_co2e=("TOTAL_CO2E_EMISSIONS", "sum"),
-        num_orders=("SALES_ORDER_NUMBER", "nunique"),
-    ).reset_index()
-    period["co2e_per_dollar"] = period["total_co2e"] / period["total_revenue"]
-    period["period"] = "R" + period["SIM_ROUND"].astype(str) + "-S" + period["SIM_STEP"].astype(str)
+    freight = lax[lax['CargoType'] == 'Freight']
+    mail = lax[lax['CargoType'] == 'Mail']
 
-    overstock_raw = carbon[carbon["TYPE"] == "Overstock"].groupby(["SIM_ROUND", "SIM_STEP"]).agg(
-        overstock_co2e=("TOTAL_CO2E_EMISSIONS", "sum")
-    ).reset_index()
-    period = pd.merge(period, overstock_raw, on=["SIM_ROUND", "SIM_STEP"], how="left")
-    period["overstock_co2e"] = period["overstock_co2e"].fillna(0)
+    yearly = freight.groupby(freight['date'].dt.year)['AirCargoTons'].sum()
+    monthly = freight.groupby('ReportPeriod')['AirCargoTons'].sum()
 
-    s1, s2 = MinMaxScaler(), MinMaxScaler()
-    period["intensity_scaled"] = s1.fit_transform(period[["co2e_per_dollar"]])
-    period["overstock_scaled"]  = s2.fit_transform(period[["overstock_co2e"]])
-    period["cape_risk_score"]   = period["intensity_scaled"] * 0.70 + period["overstock_scaled"] * 0.30
-    period = period.sort_values(["SIM_ROUND", "SIM_STEP"]).reset_index(drop=True)
+    intl = freight[freight['Domestic_International'] == 'International']['AirCargoTons'].sum()
+    dom = freight[freight['Domestic_International'] == 'Domestic']['AirCargoTons'].sum()
+    arrivals = freight[freight['Arrival_Departure'] == 'Arrival']['AirCargoTons'].sum()
+    departures = freight[freight['Arrival_Departure'] == 'Departure']['AirCargoTons'].sum()
 
-    po["delivery_steps"] = (po["GOODS_RECEIPT_ROUND"] - po["SIM_ROUND"]) * 10 + \
-                           (po["GOODS_RECEIPT_STEP"]  - po["SIM_STEP"])
-    po["is_late"] = (po["delivery_steps"] == 2).astype(int)
+    peak_month = freight.groupby('ReportPeriod')['AirCargoTons'].sum()
+    peak_month_idx = peak_month.idxmax()
+    peak_month_val = peak_month.max()
 
-    high_risk  = period[period["cape_risk_score"] >= 0.6].sort_values("cape_risk_score", ascending=False)
-    scope_sums = carbon.groupby("SCOPE")["TOTAL_CO2E_EMISSIONS"].sum().sort_values(ascending=False)
-    type_sums  = carbon.groupby("TYPE")["TOTAL_CO2E_EMISSIONS"].sum().sort_values(ascending=False)
+    total_freight = freight['AirCargoTons'].sum()
+    total_mail = mail['AirCargoTons'].sum()
 
-    return {
-        "period":         period,
-        "high_risk":      high_risk,
-        "total_co2e":     float(carbon["TOTAL_CO2E_EMISSIONS"].sum()),
-        "overstock_co2e": float(carbon[carbon["TYPE"] == "Overstock"]["TOTAL_CO2E_EMISSIONS"].sum()),
-        "scope_sums":     scope_sums,
-        "type_sums":      type_sums,
-        "late_orders":    int(po["is_late"].sum()),
-        "total_orders":   int(len(po)),
-        "total_revenue":  float(sales["NET_VALUE"].sum()),
-        "error":          None,
-    }
+    first_year_total = yearly.iloc[0]
+    last_year_total = yearly.iloc[-1]
+    overall_change = (last_year_total / first_year_total - 1) * 100
+
+    peak_year = yearly.idxmax()
+    peak_year_val = yearly.max()
+    low_year = yearly.idxmin()
+    low_year_val = yearly.min()
+
+    covid_2019 = yearly.get(2019, 0)
+    covid_2021 = yearly.get(2021, 0)
+    covid_surge = (covid_2021 / covid_2019 - 1) * 100 if covid_2019 > 0 else 0
+
+    crisis_2006 = yearly.get(2006, 0)
+    crisis_2009 = yearly.get(2009, 0)
+    crisis_drop = (crisis_2009 / crisis_2006 - 1) * 100 if crisis_2006 > 0 else 0
+
+    ctx.update({
+        "lax_raw": lax,
+        "freight": freight,
+        "yearly": yearly,
+        "total_freight": total_freight,
+        "total_mail": total_mail,
+        "intl_tons": intl,
+        "dom_tons": dom,
+        "arrivals_tons": arrivals,
+        "departures_tons": departures,
+        "peak_month": peak_month_idx,
+        "peak_month_tons": peak_month_val,
+        "peak_year": int(peak_year),
+        "peak_year_tons": peak_year_val,
+        "low_year": int(low_year),
+        "low_year_tons": low_year_val,
+        "first_year": int(yearly.index[0]),
+        "last_year": int(yearly.index[-1]),
+        "first_year_tons": first_year_total,
+        "last_year_tons": last_year_total,
+        "overall_change_pct": overall_change,
+        "covid_surge_pct": covid_surge,
+        "crisis_drop_pct": crisis_drop,
+        "intl_pct": intl / total_freight * 100,
+        "num_years": int(yearly.index[-1] - yearly.index[0] + 1),
+    })
+
+    # Load per-shipment LAX data if available
+    try:
+        lax_sales = pd.read_excel(data_dir / "LAX_Sales.xlsx")
+        lax_carbon = pd.read_excel(data_dir / "LAX_Carbon_Emissions.xlsx", sheet_name="Carbon_Emissions")
+
+        carriers = lax_carbon.groupby("Carrier")["Total_CO2e_kg"].sum().sort_values(ascending=False)
+        routes = lax_carbon.groupby("Route")["Total_CO2e_kg"].sum().sort_values(ascending=False)
+        products = lax_carbon.groupby("Material/Product")["Total_CO2e_kg"].sum().sort_values(ascending=False)
+        delivery_status = lax_carbon.groupby("Delivery_Status")["Total_CO2e_kg"].sum()
+        late_overstock = lax_carbon[lax_carbon["Overstock_CO2e_kg"] > 0]["Overstock_CO2e_kg"].sum()
+
+        ctx["shipment_available"] = True
+        ctx["num_shipments"] = len(lax_carbon)
+        ctx["total_shipment_co2e"] = float(lax_carbon["Total_CO2e_kg"].sum())
+        ctx["total_scope1"] = float(lax_carbon["Scope_1_CO2e_kg"].sum())
+        ctx["total_scope2"] = float(lax_carbon["Scope_2_CO2e_kg"].sum())
+        ctx["total_scope3"] = float(lax_carbon["Scope_3_CO2e_kg"].sum())
+        ctx["total_overstock_co2e"] = float(late_overstock)
+        ctx["total_carbon_cost_usd"] = float(lax_carbon["Carbon_Cost_USD"].sum())
+        ctx["total_revenue"] = float(lax_sales["Revenue"].sum())
+        ctx["carriers_co2e"] = {k: f"{v:,.0f}" for k, v in carriers.head(5).items()}
+        ctx["routes_co2e"] = {k: f"{v:,.0f}" for k, v in routes.head(5).items()}
+        ctx["products_co2e"] = {k: f"{v:,.0f}" for k, v in products.items()}
+        ctx["delivery_co2e"] = {k: f"{v:,.0f}" for k, v in delivery_status.items()}
+
+        try:
+            validation = pd.read_excel(data_dir / "LAX_Carbon_Emissions.xlsx", sheet_name="LAWA_Annual_Validation")
+            ctx["lawa_validation"] = True
+            ctx["lawa_years"] = f"{validation['Year'].iloc[0]} to {validation['Year'].iloc[-1]}"
+        except Exception:
+            ctx["lawa_validation"] = False
+    except Exception:
+        ctx["shipment_available"] = False
+
+    return ctx
 
 
 # ── System prompt ─────────────────────────────────────────────────────────────
@@ -98,51 +156,81 @@ def _build_system_prompt(ctx, search_results=None):
     from datetime import date
     today = date.today().strftime("%B %d, %Y")
 
-    hr = ctx["high_risk"]
-    hr_list = ", ".join(
-        f"{r['period']} (score: {r['cape_risk_score']:.3f})"
-        for _, r in hr.iterrows()
-    )
-    scope_lines = "\n".join(f"  Scope {k}: {v:,.0f} kg CO2e" for k, v in ctx["scope_sums"].items())
-    type_lines  = "\n".join(f"  {k}: {v:,.0f} kg CO2e"       for k, v in ctx["type_sums"].items())
-    top5 = ctx["period"].nlargest(5, "cape_risk_score")[
-        ["period", "cape_risk_score", "co2e_per_dollar", "overstock_co2e"]
-    ].to_string(index=False)
-    late_pct = ctx["late_orders"] / ctx["total_orders"] * 100
+    yearly_str = "\n".join(f"  {y}: {v:,.0f} tons" for y, v in ctx["yearly"].items())
 
     prompt = f"""You are CAPE AI, an assistant for the Carbon-Aware Predictive Engine — an NSF-funded research project at CSULA (California State University, Los Angeles).
 
 Today's date is {today}.
 
-CAPE predicts carbon risk in supply chain decisions using ERPsim simulation data, before orders become late. SAP Green Ledger records emissions after the fact; CAPE flags risk at the moment a fulfillment decision is made.
+CAPE is an AI-Driven Analytics Platform that predicts carbon risk in supply chain logistics using LAX air freight data. The core insight: when ground supply chains get stressed, companies switch to air freight — which produces 47-50x more carbon per ton-mile. CAPE detects these mode-switching events before they happen.
 
-KEY DATA:
-- Total CO2e: {ctx['total_co2e']:,.0f} kg
-- Overstock CO2e (Scope 1): {ctx['overstock_co2e']:,.0f} kg ({ctx['overstock_co2e']/ctx['total_co2e']*100:.1f}% of total)
-- Total revenue: {ctx['total_revenue']:,.0f} EUR
-- Late orders: {ctx['late_orders']} of {ctx['total_orders']} ({late_pct:.1f}%)
-- High-risk periods (score >= 0.6): {len(hr)} of {len(ctx['period'])} total
+PRIMARY DATA — LAX Air Freight ({ctx['num_years']} years, {ctx['first_year']}–{ctx['last_year']}):
+- Total freight volume: {ctx['total_freight']:,.0f} tons across {ctx['num_years']} years
+- Total mail volume: {ctx['total_mail']:,.0f} tons
+- International freight: {ctx['intl_pct']:.1f}% of total
+- Arrivals: {ctx['arrivals_tons']:,.0f} tons | Departures: {ctx['departures_tons']:,.0f} tons
+- Peak month: {ctx['peak_month']} ({ctx['peak_month_tons']:,.0f} tons)
+- Peak year: {ctx['peak_year']} ({ctx['peak_year_tons']:,.0f} tons)
+- Lowest year: {ctx['low_year']} ({ctx['low_year_tons']:,.0f} tons)
+- Overall change {ctx['first_year']}→{ctx['last_year']}: {ctx['overall_change_pct']:+.1f}%
+- 2008 Financial Crisis drop (2006→2009): {ctx['crisis_drop_pct']:.1f}%
+- COVID supply chain surge (2019→2021): +{ctx['covid_surge_pct']:.1f}%
 
-CAPE RISK SCORE = (Carbon Intensity Scaled × 0.70) + (Overstock CO2e Scaled × 0.30)
-Both are MinMax-normalized. Threshold: >= 0.6 = High Risk.
+YEARLY FREIGHT TOTALS:
+{yearly_str}
 
-HIGH-RISK PERIODS: {hr_list}
+KEY EVENTS IN THE DATA:
+- 2006-2007: Pre-crisis baseline ~2M tons/year
+- 2008-2009: Financial crisis caused 21% freight decline
+- 2010-2019: Gradual recovery, reaching pre-crisis levels by 2015
+- 2020-2021: COVID disrupted ground supply chains, air freight surged +22% (mode-switching)
+- 2021 March: Peak month — 254,057 tons (supply chain crisis peak)
+- 2022-2023: Sharp correction as supply chains normalized (-34% from 2021 peak)
 
-EMISSIONS BY SCOPE:
-{scope_lines}
+CARBON CONTEXT:
+- Air freight produces ~47-50x more CO2 per ton-mile than ground transport
+- Each spike in LAX air cargo = proportional spike in carbon emissions
+- The 2021 surge alone represents millions of additional tons of CO2
+- CAPE's value: detecting conditions that trigger mode-switching BEFORE the switch happens"""
 
-EMISSIONS BY TYPE:
-{type_lines}
+    if ctx.get("shipment_available"):
+        carriers_str = "\n".join(f"  {k}: {v} kg CO2e" for k, v in ctx["carriers_co2e"].items())
+        routes_str = "\n".join(f"  {k}: {v} kg CO2e" for k, v in ctx["routes_co2e"].items())
+        products_str = "\n".join(f"  {k}: {v} kg CO2e" for k, v in ctx["products_co2e"].items())
+        delivery_str = "\n".join(f"  {k}: {v} kg CO2e" for k, v in ctx["delivery_co2e"].items())
+        prompt += f"""
 
-TOP 5 RISKIEST PERIODS:
-{top5}
+PER-SHIPMENT LAX DATA ({ctx['num_shipments']} shipments, 2020–2023):
+- Total CO2e: {ctx['total_shipment_co2e']:,.0f} kg
+- Scope 1 (direct flight): {ctx['total_scope1']:,.0f} kg
+- Scope 2 (facility electricity): {ctx['total_scope2']:,.0f} kg
+- Scope 3 (upstream supply chain): {ctx['total_scope3']:,.0f} kg
+- Overstock CO2e (late delivery penalty): {ctx['total_overstock_co2e']:,.0f} kg
+- Total carbon cost: ${ctx['total_carbon_cost_usd']:,.0f}
+- Total revenue: ${ctx['total_revenue']:,.0f}
+- Emission factors: ICAO Carbon Emissions Calculator + UK DEFRA/BEIS GHG Conversion Factors
+
+TOP CARRIERS BY CO2e:
+{carriers_str}
+
+TOP ROUTES BY CO2e:
+{routes_str}
+
+CO2e BY PRODUCT CATEGORY:
+{products_str}
+
+CO2e BY DELIVERY STATUS:
+{delivery_str}
+
+Data sources: LAWA Open Data Portal (tonnage), Freightos Air Index (pricing), ICAO/DEFRA (emission factors)."""
+
+    prompt += f"""
 
 RESEARCH CONTEXT:
-- The Sales x Carbon join on SIM_ROUND + SIM_STEP is a novel contribution not previously in ERPsim literature
-- 60.8% of Scope 1 emissions come from inventory overstock — not shipping
-- LAX air cargo peaked March 2021 (254,057 tons), validating CAPE's highest-risk periods
-- Air freight carries ~47–50x the carbon per ton-mile vs. ground transport
-- Team: Daniel Ramirez (CIS), Brian (Finance/Supply Chain), Dr. Ming Wang (Faculty Advisor)"""
+- CAPE is an AI-Driven Analytics Platform for carbon-awareness of LAX logistics
+- Team: Brian Ta, Daniel Ramirez | Advisor: Dr. Ming Wang (Faculty Advisor) | CSULA CIS
+- NSF Grant Project | SAIES Research
+- Novel contribution: connecting supply chain order patterns to real-world air freight carbon impact at LAX"""
 
     if search_results:
         results_text = "\n\n".join(
@@ -156,7 +244,7 @@ CURRENT WEB SEARCH RESULTS (live data retrieved for this question):
 
 Instructions for using search results:
 - Use the search results as your primary source for any current or real-world information.
-- Always connect findings back to what they mean for CAPE's focus areas: carbon risk, supply chain disruptions, freight costs, emissions regulations, or overstock risk.
+- Always connect findings back to what they mean for CAPE's focus areas: carbon risk, supply chain disruptions, freight costs, emissions regulations, or LAX air cargo.
 - At the end of your response, list each source you used as a numbered reference in this exact format:
   [1] Title — URL (Date)
   [2] Title — URL (Date)
@@ -165,162 +253,31 @@ Instructions for using search results:
     prompt += """
 
 RESPONSE GUIDELINES:
-- CAPE data questions: answer directly and authoritatively from the dataset above. No citation needed.
+- LAX data questions: answer directly and authoritatively from the dataset above. No citation needed.
+- Questions about CAPE: explain it as an AI-Driven Analytics Platform focused on LAX logistics carbon risk.
 - Questions with search results: lead with the insight relevant to CAPE/supply chain, then cite sources as a numbered list at the end.
 - General knowledge without search results: answer helpfully; note if the information is from training data and may not reflect the latest developments.
 - Greetings and casual conversation: respond naturally and professionally; no citation needed.
 - Never start a response with "I'm not sure" or "I don't know" — state what you do know, then note any limitations.
+- When discussing ERPsim, always clarify it was used as training data for CAPE's model — the real analysis is on LAX data.
 Keep all responses under 250 words."""
 
     return prompt
 
 
-# ── Pattern matching ──────────────────────────────────────────────────────────
+# ── Pattern matching (minimal — almost everything goes to the LLM) ───────────
 def _pattern_answer(q, ctx):
-    ql = q.lower()
-    hr = ctx["high_risk"]
-    total = ctx["total_co2e"]
-    overstock = ctx["overstock_co2e"]
+    """Only match exact, short, definitional questions. Everything else goes to LLM."""
+    ql = q.lower().strip().rstrip("?").strip()
 
-    if any(t in ql for t in ["total carbon", "total co2", "co2e", "carbon footprint",
-                               "total emissions", "overall emissions", "how much carbon",
-                               "how much co2", "carbon total"]):
+    if ql in ("what is cape", "what does cape do", "explain cape"):
         return (
-            f"Total CO2e across all simulation periods: **{total:,.0f} kg**. "
-            f"Of that, **{overstock:,.0f} kg ({overstock/total*100:.1f}%)** is from overstock — "
-            f"idle inventory holding penalties, not shipping."
-        )
-
-    if any(t in ql for t in ["overstock", "overstock co2", "overstock penalty",
-                               "idle inventory", "inventory penalty", "inventory carbon"]):
-        return (
-            f"Overstock CO2e: **{overstock:,.0f} kg** — {overstock/total*100:.1f}% of total emissions. "
-            f"This is the carbon penalty from inventory sitting idle due to delayed orders. "
-            f"It accounts for 60.8% of all Scope 1 (direct) emissions — making overstock "
-            f"a bigger carbon driver than shipping."
-        )
-
-    # Check worst/peak BEFORE the general high-risk check — "worst risk period" contains "risk period"
-    if any(t in ql for t in ["worst period", "highest risk", "peak risk", "most dangerous",
-                               "worst risk", "highest score", "r3-s6", "r3 s6",
-                               "highest scoring", "most at risk"]):
-        if hr.empty:
-            return "No high-risk periods found in the current dataset."
-        top = hr.iloc[0]
-        return (
-            f"The highest-risk period is **{top['period']}** with a CAPE risk score of **{top['cape_risk_score']:.3f}**. "
-            f"Carbon intensity: {top['co2e_per_dollar']:.4f} kg CO2e/$. "
-            f"Overstock penalty: {top['overstock_co2e']:,.0f} kg CO2e."
-        )
-
-    if any(t in ql for t in ["high risk", "high-risk", "risky period",
-                               "which periods", "flagged period", "periods above threshold"]):
-        if hr.empty:
-            return "No periods scored above the 0.6 high-risk threshold in the current dataset."
-        names = ", ".join(hr["period"].tolist())
-        return (
-            f"**{len(hr)} periods** scored above the 0.6 high-risk threshold: {names}. "
-            f"These are periods where carbon intensity and overstock penalties were both elevated."
-        )
-
-    if any(t in ql for t in ["risk score", "risk formula", "cape formula", "how is risk calculated",
-                               "how is the score", "cape score", "formula", "0.70", "0.30",
-                               "weighted sum", "minmax", "scoring method"]):
-        return (
-            "**CAPE Risk Score = (Carbon Intensity Scaled × 0.70) + (Overstock CO2e Scaled × 0.30)**\n\n"
-            "Both inputs are MinMax-normalized across all simulation periods. "
-            "Carbon intensity (CO2e per $ revenue) is weighted 70% as a forward-looking signal. "
-            "Overstock CO2e is weighted 30% as a lagging indicator of accumulated fulfillment failures. "
-            "Periods scoring ≥ 0.6 are flagged as High Risk."
-        )
-
-    if any(t in ql for t in ["late order", "on-time", "on time", "delivery",
-                               "orders late", "were late", "how many late", "late delivery",
-                               "order lateness", "late rate"]):
-        pct = ctx["late_orders"] / ctx["total_orders"] * 100
-        return (
-            f"**{ctx['late_orders']} of {ctx['total_orders']} orders** ({pct:.1f}%) were late — "
-            f"defined as taking 2 simulation steps to arrive instead of 1. "
-            f"Late orders are the primary driver of overstock buildup and downstream carbon penalties."
-        )
-
-    if any(t in ql for t in ["scope 1", "scope 2", "scope 3", "scope breakdown",
-                               "by scope", "emission scope", "scope carbon", "scope emissions"]):
-        lines = "\n".join(f"- Scope {k}: {v:,.0f} kg CO2e" for k, v in ctx["scope_sums"].items())
-        return f"CO2e by emission scope:\n{lines}"
-
-    if any(t in ql for t in ["emission type", "by type", "type of emission",
-                               "emission source", "what generates", "source of carbon",
-                               "breakdown by type"]):
-        lines = "\n".join(f"- {k}: {v:,.0f} kg CO2e" for k, v in ctx["type_sums"].items())
-        return f"CO2e by emission type:\n{lines}"
-
-    if any(t in ql for t in ["lax", "air freight", "air cargo", "mode switching",
-                               "air shipment", "freight mode", "air transport"]):
-        return (
-            "LAX air cargo peaked in **March 2021 at 254,057 tons** — the same stretch as CAPE's "
-            "highest-risk simulation periods. This is empirical evidence of freight mode-switching: "
-            "when ground corridors get stressed by late orders, air freight absorbs the overflow. "
-            "Air freight carries ~47–50× the carbon per ton-mile vs. ground transport, "
-            "making escalation to air a major carbon multiplier."
-        )
-
-    if any(t in ql for t in ["what is cape", "what does cape", "explain cape",
-                               "how does cape work", "purpose of cape", "cape research",
-                               "cape project", "what cape does"])  \
-            and not any(t in ql for t in ["compare", "vs sap", "green ledger", "sap green"]):
-        return (
-            "**CAPE (Carbon-Aware Predictive Engine)** is an NSF-funded research project at CSULA. "
-            "It predicts carbon risk *before* supply chain decisions are made — filling the gap "
-            "that tools like SAP Green Ledger don't cover (they record emissions after the fact). "
-            "CAPE joins ERPsim sales and carbon data on SIM_ROUND/SIM_STEP to produce a per-period "
-            "risk score. Periods scoring ≥ 0.6 trigger alerts. Key finding: 60.8% of Scope 1 "
-            "emissions come from overstock caused by late orders — not from shipping."
-        )
-
-    if any(t in ql for t in ["green ledger", "sap green", "backward", "forward-looking",
-                               "compare to sap", "vs sap", "difference between cape",
-                               "cape vs", "vs green ledger"]):
-        return (
-            "| | SAP Green Ledger | CAPE |\n"
-            "|---|---|---|\n"
-            "| Orientation | Backward-looking | Forward-looking |\n"
-            "| Function | Records carbon per transaction | Predicts carbon before the order is late |\n"
-            "| Decision support | Audit/ESG reporting | Real-time risk alerts |\n\n"
-            "CAPE catches the risk at Step 4 (period flagged) — Green Ledger sees it at Step 7 (after emissions are logged)."
-        )
-
-    if any(t in ql for t in ["round 3", "r3", "what happened in round 3",
-                               "why round 3", "round three"]):
-        r3 = ctx["period"][ctx["period"]["SIM_ROUND"] == 3]
-        r3_hr = r3[r3["cape_risk_score"] >= 0.6]
-        return (
-            f"Round 3 had **{len(r3_hr)} high-risk periods** — more than any other round. "
-            f"Average CAPE risk score in Round 3: {r3['cape_risk_score'].mean():.3f}. "
-            f"The worst single period in the dataset is R3-S6 (score: 0.834). "
-            f"Round 3 shows systematic fulfillment failures: more late orders, larger overstock buildup, "
-            f"and higher carbon intensity per dollar of revenue."
-        )
-
-    if any(t in ql for t in ["carbon intensity", "co2e per dollar", "co2e per revenue",
-                               "emissions per dollar", "intensity trend", "most intense period"]):
-        top = ctx["period"].nlargest(1, "co2e_per_dollar").iloc[0]
-        avg = ctx["period"]["co2e_per_dollar"].mean()
-        return (
-            f"Carbon intensity measures CO2e per dollar of revenue. "
-            f"Average across all periods: **{avg:.4f} kg CO2e/$**. "
-            f"Peak period: **{top['period']}** at {top['co2e_per_dollar']:.4f} kg CO2e/$."
-        )
-
-    if any(t in ql for t in ["random forest", "ml model", "machine learning",
-                               "model accuracy", "94", "feature importance",
-                               "top predictor", "order risk model"]):
-        return (
-            "The CAPE order risk model is a **Random Forest classifier** trained on ERPsim data. "
-            "It achieves **94.2% accuracy** (±3.3% across 5-fold CV). "
-            "The top predictor is `total_co2e` — confirming that carbon exposure and order risk "
-            "are statistically linked. Other top features include `num_orders`, `total_quantity`, "
-            "and `SIM_ELAPSED_STEPS`. See the CAPE Carbon page for the full feature importance chart."
+            "**CAPE (Carbon-Aware Predictive Engine)** is an AI-Driven Analytics Platform and NSF-funded "
+            "research project at CSULA. It predicts carbon risk in supply chain logistics by analyzing "
+            f"LAX air freight data spanning {ctx['num_years']} years ({ctx['first_year']}–{ctx['last_year']}). "
+            "The core insight: when ground supply chains get stressed, companies switch to air freight — "
+            "which produces 47-50x more carbon per ton-mile. CAPE detects these mode-switching events "
+            "before they happen, enabling intervention before carbon costs spike."
         )
 
     return None
@@ -328,18 +285,14 @@ def _pattern_answer(q, ctx):
 
 # ── Web search ───────────────────────────────────────────────────────────────
 _SEARCH_TRIGGERS = [
-    # Time-sensitive
-    "today", "current", "now", "recent", "latest", "this year", "this month",
-    "this week", "news", "event", "happening", "right now", "currently",
+    "right now", "this year", "this month", "this week",
+    "latest news", "current events", "what is happening",
     "2024", "2025", "2026",
-    # External benchmarks / comparisons
-    "industry", "benchmark", "standard", "average", "compared to",
-    "other companies", "other businesses", "regulation", "law", "policy",
-    "market", "price", "rate", "trend", "global", "worldwide",
-    # CAPE + external hybrids
-    "affect our business", "impact our", "affect cape", "affect our risk",
-    "affect our carbon", "affect our supply chain", "freight rate",
-    "shipping cost", "fuel price", "carbon tax", "emissions regulation",
+    "other companies", "other businesses",
+    "affect our business", "impact our", "affect our risk",
+    "affect our carbon", "affect our supply chain",
+    "freight rate today", "current shipping cost", "current fuel price",
+    "carbon tax", "emissions regulation",
 ]
 
 def _should_search(question):
@@ -349,7 +302,7 @@ def _should_search(question):
 
 _CAPE_SEARCH_BIAS = (
     "supply chain carbon emissions logistics freight shipping "
-    "air cargo overstock inventory regulations"
+    "air cargo overstock inventory regulations LAX airport"
 )
 
 _BUSINESS_TRIGGERS = [
@@ -464,22 +417,17 @@ def _gemini_answer(question, system_prompt):
 
 
 def _clean_response(text):
-    # Each numbered source on its own line
     text = re.sub(r'\s*(\[\d+\])', r'\n\1', text)
-    # Remove "(not specified)" date placeholders
     text = re.sub(r'\s*\(not specified\)', '', text)
-    # Ensure a blank line before the first source reference
     text = re.sub(r'\n(\[1\])', r'\n\n\1', text)
     return text.strip()
 
 
 def get_answer(question, ctx):
-    # CAPE-specific questions: answered instantly from the dataset, no search needed
     answer = _pattern_answer(question, ctx)
     if answer:
         return answer, None, False
 
-    # Determine whether to search and run search if applicable
     search_results = []
     search_err = None
     searched = False
@@ -498,38 +446,42 @@ def get_answer(question, ctx):
 
     errors = [e for e in [search_err, groq_err, gemini_err] if e]
     return (
-        "I can answer questions about CAPE risk scores, carbon emissions by scope or type, "
-        "overstock penalties, late orders, the risk formula, Round 3 analysis, LAX air cargo, "
-        "the Random Forest model, and how CAPE compares to SAP Green Ledger. "
-        "Try one of the suggested questions in the sidebar."
+        "I can answer questions about LAX air freight data, carbon emissions by carrier and route, "
+        "supply chain mode-switching, delivery status impacts, and how CAPE predicts carbon risk. "
+        "Try one of the suggested questions in the sidebar, or ask your own."
     ), errors or None, searched
 
 
 # ── Page ──────────────────────────────────────────────────────────────────────
 st.title("💬 CAPE AI")
-st.markdown("**Ask anything — CAPE data, carbon risk, general knowledge, or casual questions.**")
-st.caption("CAPE data answers are drawn directly from the ERPsim dataset. Responses referencing external sources include a citation and should be independently verified.")
+st.markdown("**Ask anything about LAX air freight, carbon risk, supply chain logistics, or CAPE research.**")
+st.markdown("##### Team")
+st.markdown("Brian Ta · Daniel Ramirez")
+st.markdown("##### Advisor")
+st.markdown("Dr. Ming Wang")
+st.caption("CSULA CIS | SAIES Research | NSF Grant Project")
+st.caption("Answers are grounded in 18 years of LAX air freight data (2006–2023). Questions about current events use live web search with citations.")
 st.divider()
 
 ctx = load_cape_context()
 
 if ctx.get("error"):
-    st.error(f"Could not load CAPE data: {ctx['error']}. Use the Data Upload page to add the required files.")
+    st.error(f"Could not load data: {ctx['error']}. Ensure lax_cargo.csv is in the data/ folder.")
     st.stop()
 
 SUGGESTIONS = [
-    "What is the total carbon footprint?",
-    "Which periods are high risk?",
-    "What is the CAPE risk score formula?",
-    "How many orders were late?",
-    "What percentage of emissions come from overstock?",
-    "What is the worst risk period?",
-    "What happened in Round 3?",
-    "How does CAPE compare to SAP Green Ledger?",
-    "What is the LAX air freight connection?",
-    "Tell me about the Random Forest model.",
-    "What is the carbon intensity trend?",
-    "Break down emissions by scope.",
+    "What is CAPE?",
+    "Which LAX air cargo carriers produce the most carbon?",
+    "What are the highest-emitting routes from LAX?",
+    "How did COVID affect LAX air freight volume and carbon?",
+    "Which product categories have the highest carbon intensity?",
+    "What is the carbon impact of late deliveries at LAX?",
+    "How do Scope 1, 2, and 3 emissions break down for LAX freight?",
+    "Does LAX air freight reduce carbon over time?",
+    "What drives spikes in LAX air cargo volume?",
+    "How does air freight carbon compare to ground transport?",
+    "What was the peak month and year for LAX freight?",
+    "What data sources does CAPE use?",
 ]
 
 if "cape_messages" not in st.session_state:
@@ -560,7 +512,7 @@ for msg in st.session_state.cape_messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-if prompt := st.chat_input("Ask anything — CAPE data, current events, or general questions..."):
+if prompt := st.chat_input("Ask anything about LAX air freight, carbon risk, or CAPE research..."):
     st.session_state.cape_messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
@@ -578,4 +530,4 @@ if prompt := st.chat_input("Ask anything — CAPE data, current events, or gener
 if not st.session_state.cape_messages:
     st.info("Ask a question below, or click a suggested question in the sidebar.")
 
-st.caption("CAPE AI | SAIES Research | CSULA CIS | NSF Grant Project")
+st.caption("CAPE AI | AI-Driven Analytics Platform | SAIES Research | CSULA CIS | NSF Grant Project")

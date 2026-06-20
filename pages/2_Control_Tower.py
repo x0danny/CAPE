@@ -7,11 +7,19 @@ from sklearn.preprocessing import MinMaxScaler
 import warnings
 warnings.filterwarnings('ignore')
 
-st.set_page_config(page_title="CAPE Control Tower", page_icon="⚡", layout="wide")
+st.set_page_config(page_title="AI Supply Chain Control Tower", page_icon="⚡", layout="wide")
 
-st.title("⚡ CAPE Control Tower")
+st.title("⚡ AI Supply Chain Control Tower")
 st.markdown("**Order Risk Intelligence + Carbon Exposure | ERPsim Data**")
-st.caption("Every number has a plain English explanation. No guessing what anything means.")
+
+st.markdown("##### Team")
+st.markdown("Brian Ta · Daniel Ramirez")
+st.markdown("##### Advisor")
+st.markdown("Dr. Ming Wang")
+st.caption("CSULA CIS | SAIES Research | NSF Grant Project")
+st.divider()
+
+st.caption("Every number has a plain English explanation. No jargon, no guessing.")
 st.divider()
 
 @st.cache_data
@@ -24,7 +32,6 @@ def load_data():
 
 sales, carbon, po, inventory = load_data()
 
-# Build period summary
 po['delivery_steps'] = (po['GOODS_RECEIPT_ROUND'] - po['SIM_ROUND']) * 10 + \
                        (po['GOODS_RECEIPT_STEP'] - po['SIM_STEP'])
 po['is_late'] = (po['delivery_steps'] == 2).astype(int)
@@ -66,51 +73,172 @@ total_orders = len(po)
 # SECTION 1: WHAT IS HAPPENING RIGHT NOW
 # ══════════════════════════════════════════════════════
 st.header("📍 What Is Happening Right Now")
-st.caption("A snapshot of order health and carbon exposure across all simulation periods.")
+st.caption("A quick snapshot of order health and carbon exposure. Think of this as a check engine light for your supply chain.")
 st.divider()
 
 col1, col2, col3, col4 = st.columns(4)
 with col1:
     st.metric("Late Orders", f"{total_late} of {total_orders}")
-    st.caption("Orders that took 2 steps to arrive instead of 1. Late orders trigger carbon penalties downstream.")
+    st.caption("Orders that took 2 steps to arrive instead of 1. Late orders cause inventory to pile up, which generates carbon penalties.")
 with col2:
     st.metric("High Risk Periods", f"{len(high_risk)} of 38")
-    st.caption("Simulation periods where carbon intensity AND overstock penalties were both elevated above safe threshold.")
+    st.caption("Time periods where carbon costs were unusually high. More high-risk periods = more money being spent on avoidable emissions.")
 with col3:
     st.metric("Worst Period", "R3-S6")
-    st.caption("Round 3 Step 6 had the highest CAPE risk score (0.834) — carbon intensity spiked to 0.146 kg CO2e per dollar.")
+    st.caption("This period had the highest risk score (0.834). Carbon costs per dollar of revenue were nearly double the safe level.")
 with col4:
     st.metric("Overstock CO2e", "142,500 kg")
-    st.caption("Total carbon penalty from inventory sitting idle. This is 61% of all direct emissions — caused by late orders.")
+    st.caption("Carbon wasted on inventory sitting in warehouses. That's 61% of all direct emissions — most of it preventable.")
 
 st.divider()
 
 # ══════════════════════════════════════════════════════
-# SECTION 2: WHY IS IT HAPPENING
+# SECTION 2: WHAT-IF SCENARIO SIMULATOR
+# ══════════════════════════════════════════════════════
+st.header("🎛️ What-If Scenario Simulator")
+st.caption("Drag the sliders to see how changes to late orders, reorder quantities, and freight choices would affect carbon risk. This helps you compare different strategies before committing.")
+st.divider()
+
+sim_col1, sim_col2, sim_col3 = st.columns(3)
+
+with sim_col1:
+    late_reduction = st.slider(
+        "Reduce late orders by",
+        min_value=0, max_value=100, value=0, step=5,
+        format="%d%%",
+        help="What if you could prevent some late orders? Slide right to see the impact of fewer delays."
+    )
+
+with sim_col2:
+    reorder_reduction = st.slider(
+        "Reduce reorder quantities by",
+        min_value=0, max_value=50, value=0, step=5,
+        format="%d%%",
+        help="Ordering less means less overstock sitting in warehouses. Slide right to see how smaller orders reduce carbon waste."
+    )
+
+with sim_col3:
+    ground_shift = st.slider(
+        "Shift air freight to ground",
+        min_value=0, max_value=100, value=0, step=5,
+        format="%d%%",
+        help="Ground transport produces ~47-50x less carbon than air. Slide right to see the impact of using more ground shipping."
+    )
+
+sim_summary = period_summary_sorted.copy()
+
+original_overstock = sim_summary['overstock_co2e'].sum()
+original_total_co2e = sim_summary['total_co2e'].sum()
+original_high_risk_count = len(sim_summary[sim_summary['cape_risk_score'] >= 0.6])
+original_avg_risk = sim_summary['cape_risk_score'].mean()
+
+late_factor = 1 - (late_reduction / 100)
+overstock_factor = 1 - (reorder_reduction / 100)
+air_carbon_reduction = ground_shift / 100 * 0.98
+
+sim_summary['sim_overstock_co2e'] = sim_summary['overstock_co2e'] * late_factor * overstock_factor
+non_overstock = sim_summary['total_co2e'] - sim_summary['overstock_co2e']
+sim_summary['sim_total_co2e'] = non_overstock * (1 - air_carbon_reduction) + sim_summary['sim_overstock_co2e']
+sim_summary['sim_co2e_per_dollar'] = sim_summary['sim_total_co2e'] / sim_summary['total_revenue']
+
+scaler_sim = MinMaxScaler()
+if sim_summary['sim_co2e_per_dollar'].nunique() > 1:
+    sim_summary['sim_intensity_scaled'] = scaler_sim.fit_transform(sim_summary[['sim_co2e_per_dollar']])
+else:
+    sim_summary['sim_intensity_scaled'] = 0.0
+if sim_summary['sim_overstock_co2e'].nunique() > 1:
+    sim_summary['sim_overstock_scaled'] = scaler_sim.fit_transform(sim_summary[['sim_overstock_co2e']])
+else:
+    sim_summary['sim_overstock_scaled'] = 0.0
+sim_summary['sim_risk_score'] = (sim_summary['sim_intensity_scaled'] * 0.70 +
+                                  sim_summary['sim_overstock_scaled'] * 0.30)
+
+new_overstock = sim_summary['sim_overstock_co2e'].sum()
+new_total_co2e = sim_summary['sim_total_co2e'].sum()
+new_high_risk_count = len(sim_summary[sim_summary['sim_risk_score'] >= 0.6])
+new_avg_risk = sim_summary['sim_risk_score'].mean()
+
+has_changes = late_reduction > 0 or reorder_reduction > 0 or ground_shift > 0
+
+if has_changes:
+    r1, r2, r3, r4 = st.columns(4)
+    with r1:
+        co2e_delta = new_total_co2e - original_total_co2e
+        st.metric("Total CO2e", f"{new_total_co2e:,.0f} kg",
+                  delta=f"{co2e_delta:,.0f} kg", delta_color="inverse")
+        st.caption("Lower is better. This shows total carbon emissions under your scenario.")
+    with r2:
+        overstock_delta = new_overstock - original_overstock
+        st.metric("Overstock CO2e", f"{new_overstock:,.0f} kg",
+                  delta=f"{overstock_delta:,.0f} kg", delta_color="inverse")
+        st.caption("Carbon wasted on idle inventory. Your changes would reduce this by ordering smarter.")
+    with r3:
+        risk_delta = new_high_risk_count - original_high_risk_count
+        st.metric("High Risk Periods", f"{new_high_risk_count} of 38",
+                  delta=f"{risk_delta}", delta_color="inverse")
+        st.caption("Fewer high-risk periods means fewer times the supply chain hits dangerous carbon levels.")
+    with r4:
+        avg_delta = new_avg_risk - original_avg_risk
+        st.metric("Avg Risk Score", f"{new_avg_risk:.3f}",
+                  delta=f"{avg_delta:.3f}", delta_color="inverse")
+        st.caption("The average carbon risk across all periods. Below 0.6 is the safe zone.")
+
+    fig_compare = go.Figure()
+    fig_compare.add_trace(go.Bar(
+        x=sim_summary['period'], y=sim_summary['cape_risk_score'],
+        name='Current Risk', marker_color='rgba(226,75,74,0.4)',
+        hovertemplate='<b>%{x}</b><br>Current: %{y:.3f}<extra></extra>'
+    ))
+    fig_compare.add_trace(go.Bar(
+        x=sim_summary['period'], y=sim_summary['sim_risk_score'],
+        name='Simulated Risk', marker_color='rgba(29,158,117,0.7)',
+        hovertemplate='<b>%{x}</b><br>Simulated: %{y:.3f}<extra></extra>'
+    ))
+    fig_compare.add_hline(y=0.6, line_dash='dash', line_color='red',
+                          annotation_text='High Risk Threshold (0.6)')
+    fig_compare.update_layout(
+        title='Current vs. Simulated Risk Score by Period',
+        barmode='group', xaxis_tickangle=45,
+        height=400,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0)
+    )
+    st.plotly_chart(fig_compare, use_container_width=True)
+
+    pct_reduction = (1 - new_total_co2e / original_total_co2e) * 100
+    st.success(f"**Your scenario would reduce total carbon emissions by {pct_reduction:.1f}%** — "
+               f"from {original_total_co2e:,.0f} kg to {new_total_co2e:,.0f} kg CO2e, "
+               f"and drop the number of high-risk periods from {original_high_risk_count} to {new_high_risk_count}.")
+else:
+    st.info("👆 **Try it:** Move the sliders above to simulate different supply chain strategies and see how they would change carbon outcomes. For example, reducing late orders by 30% would significantly cut overstock penalties.")
+
+st.divider()
+
+# ══════════════════════════════════════════════════════
+# SECTION 3: WHY IS IT HAPPENING
 # ══════════════════════════════════════════════════════
 st.header("🔍 Why Is It Happening")
-st.caption("These charts show which signals are driving the carbon risk. Each chart has a plain English explanation.")
+st.caption("These charts show the root causes behind carbon risk. Each chart includes a plain English explanation below it.")
 st.divider()
 
 col_a, col_b = st.columns(2)
 
 with col_a:
     fig1 = px.bar(period_summary_sorted, x='period', y='late_pct',
-                  title='Late Order Rate by Period (%)',
+                  title='Late Order Rate by Period',
                   color='late_pct', color_continuous_scale='Reds',
-                  labels={'late_pct': '% Late', 'period': 'Period'})
+                  labels={'late_pct': '% of Orders Late', 'period': 'Time Period'})
     fig1.update_layout(xaxis_tickangle=45)
     st.plotly_chart(fig1, use_container_width=True)
-    st.caption("📌 **What this means:** Bars show what percentage of orders arrived late in each period. Taller red bars = more late orders = more carbon risk. Round 3 consistently has the most late orders.")
+    st.caption("📌 **What this means:** Each bar shows the percentage of orders that arrived late in that time period. Taller red bars = more delays = more carbon risk. When orders are late, inventory piles up in warehouses and generates carbon penalties.")
 
 with col_b:
     fig2 = px.bar(period_summary_sorted, x='period', y='overstock_co2e',
-                  title='Overstock Carbon Penalty by Period (kg CO2e)',
+                  title='Carbon Wasted on Idle Inventory',
                   color='overstock_co2e', color_continuous_scale='Oranges',
-                  labels={'overstock_co2e': 'Overstock CO2e (kg)', 'period': 'Period'})
+                  labels={'overstock_co2e': 'Wasted Carbon (kg CO2e)', 'period': 'Time Period'})
     fig2.update_layout(xaxis_tickangle=45)
     st.plotly_chart(fig2, use_container_width=True)
-    st.caption("📌 **What this means:** When orders are late, inventory piles up in warehouses. That idle inventory generates a carbon penalty. Taller bars = more inventory sitting idle = more wasted emissions.")
+    st.caption("📌 **What this means:** This is carbon being wasted on inventory sitting idle in warehouses — caused by late deliveries. Taller bars = more wasted emissions. This is the #1 source of preventable carbon in the supply chain.")
 
 col_c, col_d = st.columns(2)
 
@@ -118,11 +246,11 @@ with col_c:
     fig3 = px.scatter(period_summary, x='late_pct', y='co2e_per_dollar',
                       size='overstock_co2e', color='cape_risk_score',
                       color_continuous_scale='RdYlGn_r',
-                      title='Late Orders vs Carbon Intensity',
-                      labels={'late_pct': '% Late Orders', 'co2e_per_dollar': 'CO2e per $ Revenue'},
+                      title='Late Orders vs Carbon Cost',
+                      labels={'late_pct': '% of Orders Late', 'co2e_per_dollar': 'Carbon Cost per $1 of Revenue'},
                       hover_data=['period'])
     st.plotly_chart(fig3, use_container_width=True)
-    st.caption("📌 **What this means:** Each dot is a simulation period. Dots in the top-right corner = high late order rate AND high carbon cost per dollar. Bigger dots = bigger overstock penalty. This proves late orders and carbon spikes move together.")
+    st.caption("📌 **What this means:** Each dot is a time period. Dots in the top-right corner had both high delays AND high carbon costs — the worst combination. Bigger dots = more wasted inventory carbon. This proves late orders and carbon spikes go together.")
 
 with col_d:
     round_summary = period_summary.groupby('SIM_ROUND').agg(
@@ -133,98 +261,100 @@ with col_d:
     round_summary['round'] = 'Round ' + round_summary['SIM_ROUND'].astype(str)
 
     fig4 = px.bar(round_summary, x='round', y='avg_risk',
-                  title='Average CAPE Risk Score by Round',
+                  title='Average Carbon Risk by Round',
                   color='avg_risk', color_continuous_scale='RdYlGn_r',
-                  labels={'avg_risk': 'Avg Risk Score', 'round': 'Simulation Round'})
+                  labels={'avg_risk': 'Average Risk Score', 'round': 'Simulation Round'})
     st.plotly_chart(fig4, use_container_width=True)
-    st.caption("📌 **What this means:** Round 3 has the highest average risk score across all its periods. This tells us something systematically went wrong in Round 3 — more late orders, more overstock, more carbon.")
+    st.caption("📌 **What this means:** Round 3 had the highest average risk — something went systematically wrong. More late orders led to more overstock, which drove up carbon costs across the board.")
 
 st.divider()
 
 # ══════════════════════════════════════════════════════
-# SECTION 3: WHAT TO DO ABOUT IT
+# SECTION 4: WHAT TO DO ABOUT IT
 # ══════════════════════════════════════════════════════
 st.header("🚨 What To Do About It")
-st.caption("Plain English action recommendations for each high risk period. No jargon.")
+st.caption("Plain English recommendations for each high-risk period. No jargon — just what happened, why it matters, and what should have been done differently.")
 st.divider()
 
 for _, row in high_risk.sort_values('cape_risk_score', ascending=False).iterrows():
     risk = row['cape_risk_score']
     if risk >= 0.8:
         color = "error"
-        level = "🔴 CRITICAL RISK"
+        level = "🔴 CRITICAL"
     elif risk >= 0.7:
         color = "warning"
-        level = "🟠 HIGH RISK"
+        level = "🟠 HIGH"
     else:
         color = "info"
-        level = "🟡 ELEVATED RISK"
+        level = "🟡 ELEVATED"
 
     with st.expander(f"{level} — Period {row['period']} | Risk Score: {risk:.3f}"):
         col1, col2, col3 = st.columns(3)
-        col1.metric("Carbon Intensity", f"{row['co2e_per_dollar']:.4f} kg/$")
-        col2.metric("Overstock Penalty", f"{row['overstock_co2e']:,.0f} kg CO2e")
-        col3.metric("Late Order Rate", f"{row['late_pct']:.0f}%" if pd.notna(row['late_pct']) else "N/A")
+        col1.metric("Carbon Cost per $1", f"{row['co2e_per_dollar']:.4f} kg",
+                     help="How much carbon was emitted for every dollar of revenue. Lower is better.")
+        col2.metric("Wasted Inventory Carbon", f"{row['overstock_co2e']:,.0f} kg",
+                     help="Carbon generated by inventory sitting idle in warehouses.")
+        col3.metric("Late Order Rate", f"{row['late_pct']:.0f}%" if pd.notna(row['late_pct']) else "N/A",
+                     help="Percentage of orders that arrived late (took 2 steps instead of 1).")
 
         st.markdown("**What happened:**")
-        st.write(f"In period {row['period']}, carbon costs per dollar of revenue reached {row['co2e_per_dollar']:.4f} kg CO2e — above the safe threshold of 0.09. Overstock penalties hit {row['overstock_co2e']:,.0f} kg CO2e from inventory sitting idle due to delayed orders.")
+        st.write(f"In period {row['period']}, it cost {row['co2e_per_dollar']:.4f} kg of carbon for every dollar earned — well above the safe level of 0.09. Meanwhile, {row['overstock_co2e']:,.0f} kg of carbon was wasted on inventory that sat idle because deliveries were delayed.")
 
         st.markdown("**What should have been done:**")
         intensity = row['co2e_per_dollar']
-        overstock = row['overstock_co2e']
+        overstock_val = row['overstock_co2e']
         late_pct = row['late_pct'] if pd.notna(row['late_pct']) else 0
-        risk = row['cape_risk_score']
         period = row['period']
 
         rec_num = 1
-        st.write(f"{rec_num}. Flag orders entering {period} for delay risk — a CAPE score of {risk:.3f} would have been detectable 1-2 steps earlier, giving the operations team time to act.")
+        st.write(f"{rec_num}. CAPE flagged this period with a risk score of {risk:.3f}. This signal was detectable 1-2 steps earlier — early enough for the operations team to intervene before the damage was done.")
         rec_num += 1
 
-        if overstock > 8000:
-            st.write(f"{rec_num}. Overstock penalty of {overstock:,.0f} kg CO2e indicates severe inventory buildup. Reorder quantities should have been cut 20-30% in the prior period to prevent warehouse accumulation.")
-        elif overstock > 3000:
-            st.write(f"{rec_num}. Overstock penalty of {overstock:,.0f} kg CO2e is above normal. A modest reduction in reorder quantities the prior step would have reduced idle inventory carbon.")
+        if overstock_val > 8000:
+            st.write(f"{rec_num}. {overstock_val:,.0f} kg of carbon was wasted on excess inventory. Ordering 20-30% less in the previous period would have prevented most of this warehouse buildup.")
+        elif overstock_val > 3000:
+            st.write(f"{rec_num}. {overstock_val:,.0f} kg of carbon went to idle inventory. A modest cut to order sizes in the prior step would have reduced this waste.")
         else:
-            st.write(f"{rec_num}. Overstock penalty was relatively contained at {overstock:,.0f} kg CO2e — the primary driver here was carbon intensity from delivery patterns, not inventory buildup.")
+            st.write(f"{rec_num}. Inventory waste was relatively contained at {overstock_val:,.0f} kg. The bigger problem here was the carbon cost of delivery patterns, not warehouse buildup.")
         rec_num += 1
 
         if late_pct >= 80:
-            st.write(f"{rec_num}. With {late_pct:.0f}% of orders arriving late, this period had a near-complete delivery failure. An escalation protocol should have triggered at the start of the period — not after.")
+            st.write(f"{rec_num}. {late_pct:.0f}% of orders arrived late — nearly a complete delivery failure. An alert should have gone out at the start of this period, not after.")
         elif late_pct >= 40:
-            st.write(f"{rec_num}. With {late_pct:.0f}% late orders, more than one-third of deliveries were delayed. Proactive supplier communication one step earlier could have prevented a portion of these delays.")
+            st.write(f"{rec_num}. {late_pct:.0f}% of deliveries were delayed. Reaching out to suppliers one step earlier could have prevented a portion of these delays.")
         elif late_pct == 0:
-            st.write(f"{rec_num}. No orders were recorded as late in {period} — the elevated carbon intensity came from accumulated overstock from prior periods, not new delays in this step.")
+            st.write(f"{rec_num}. No new late orders in {period} — the high carbon costs here came from overstock that accumulated in earlier periods.")
         rec_num += 1
 
         if intensity > 0.15:
-            st.write(f"{rec_num}. Carbon intensity of {intensity:.4f} kg CO2e per dollar is critically high — {((intensity/0.09)-1)*100:.0f}% above the safe threshold. Any air freight escalation here would have multiplied the carbon cost 47-50x per ton-mile.")
+            st.write(f"{rec_num}. Carbon cost of {intensity:.4f} kg per dollar is {((intensity/0.09)-1)*100:.0f}% above the safe threshold. Switching even one shipment from air to ground would have saved significant emissions (air freight produces ~47-50x more carbon per ton-mile).")
         elif intensity > 0.12:
-            st.write(f"{rec_num}. Carbon intensity of {intensity:.4f} kg CO2e per dollar is significantly above the 0.09 threshold. Shifting even a portion of fulfillment to lower-carbon channels would have measurably reduced exposure.")
+            st.write(f"{rec_num}. Carbon cost of {intensity:.4f} kg per dollar is well above safe levels. Moving some shipments to ground transport would have meaningfully reduced the carbon footprint.")
         else:
-            st.write(f"{rec_num}. Carbon intensity of {intensity:.4f} kg CO2e per dollar is moderately elevated. Combined with the overstock penalty, total carbon exposure for this period exceeded acceptable levels.")
+            st.write(f"{rec_num}. Carbon cost of {intensity:.4f} kg per dollar is moderately elevated. Combined with the inventory waste, this period's total carbon exposure exceeded acceptable levels.")
 
 st.divider()
 
 # ══════════════════════════════════════════════════════
-# SECTION 4: THE CAPE CONNECTION
+# SECTION 5: THE CAPE CONNECTION
 # ══════════════════════════════════════════════════════
-st.header("🔗 How This Connects to CAPE")
-st.caption("This control tower feeds directly into the CAPE Carbon layer. Here is the full pipeline explained.")
+st.header("🔗 How CAPE Catches Risk Early")
+st.caption("CAPE intervenes at Step 4 — before costly air freight escalation and emissions logging happen. Here's the full chain of events.")
 st.divider()
 
 st.markdown("""
-| Step | What Happens | Why It Matters |
-|------|-------------|----------------|
-| **1. Order Placed** | A purchase order enters the ERP system | Starting point — no carbon cost yet |
-| **2. Delivery Delay** | Order takes 2 steps instead of 1 to arrive | Late flag triggered — carbon risk begins |
-| **3. Inventory Builds Up** | Warehouse holds excess stock | Overstock CO2e penalty starts accumulating |
-| **4. CAPE Flags the Period** | Risk score exceeds 0.6 threshold | Alert — intervention window is now |
-| **5. Air Freight Escalation** | Critical orders get upgraded to air to catch up | Carbon cost multiplies 47-50x vs ground |
-| **6. LAX Absorbs the Load** | Air cargo volume at LAX spikes | Real-world validation — this is what we measured |
-| **7. Green Ledger Records It** | SAP logs the emissions after the fact | Too late — CAPE caught it at Step 4 |
+| Step | What Happens | Plain English |
+|------|-------------|---------------|
+| **1. Order Placed** | A purchase order enters the system | Nothing has gone wrong yet — carbon cost is zero |
+| **2. Delivery Delayed** | Order takes 2 steps instead of 1 | The first warning sign — the order is late |
+| **3. Inventory Piles Up** | Warehouse holds excess stock | Carbon penalty starts — energy used to store idle goods |
+| **4. CAPE Flags It** | Risk score crosses 0.6 | **This is where CAPE catches it** — there's still time to act |
+| **5. Air Freight Kicks In** | Critical orders get rushed by air | Carbon cost explodes — air produces 47-50x more CO2 than ground |
+| **6. LAX Gets the Load** | Air cargo volume at LAX spikes | Real-world impact — this is what we measured in 18 years of LAX data |
+| **7. Emissions Logged** | SAP records the carbon after the fact | Too late to prevent — CAPE already caught it at Step 4 |
 """)
 
-st.info("💡 CAPE's job is to intervene at Step 4 — before Steps 5, 6, and 7 happen. That is the research contribution.")
+st.info("💡 **The key insight:** CAPE's job is to intervene at Step 4 — before the expensive, high-carbon Steps 5, 6, and 7 happen. That's the research contribution: predictive carbon intelligence, not after-the-fact reporting.")
 
 st.divider()
-st.caption("CAPE Control Tower | SAIES Research | CSULA CIS | NSF Grant Project")
+st.caption("AI Supply Chain Control Tower | SAIES Research | CSULA CIS | NSF Grant Project")

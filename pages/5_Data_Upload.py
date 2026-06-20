@@ -5,57 +5,54 @@ from pathlib import Path
 st.set_page_config(page_title="CAPE Data Upload", page_icon="📁", layout="wide")
 
 st.title("📁 Data Upload")
-st.markdown("**Test CAPE with your own ERPsim data**")
+st.markdown("**Upload LAX air freight data or ERPsim training data for CAPE analysis**")
+st.markdown("##### Team")
+st.markdown("Brian Ta · Daniel Ramirez")
+st.markdown("##### Advisor")
+st.markdown("Dr. Ming Wang")
+st.caption("CSULA CIS | SAIES Research | NSF Grant Project")
 
 st.caption(
-    "Every team that runs the ERPsim simulation makes different decisions — different pricing, "
-    "different order quantities, different timing — so their carbon outcomes will differ. "
-    "Upload your own ERPsim export files here to run the full CAPE analysis on your team's data. "
-    "This makes CAPE a replicable framework, not just a one-time analysis of one dataset."
-)
-st.info(
-    "📌 **For researchers:** CAPE was built and validated on SAP ERPsim data provided by "
-    "Dr. Ming Wang via the SAP University Alliance. If you are running ERPsim at another "
-    "institution, your exported files will work here as long as they contain the required columns "
-    "listed below each upload field.",
-    icon="🔬"
+    "CAPE analyzes LAX air freight data to predict carbon risk from supply chain mode-switching. "
+    "Upload updated LAX cargo data to extend the analysis, or upload ERPsim files to retrain "
+    "CAPE's predictive model with different simulation scenarios."
 )
 st.divider()
 
 DATA_DIR = Path(__file__).parent.parent / "data"
 
-# Each dataset: display name → filename, preferred sheet, required columns
 DATASETS = {
-    "Sales": {
-        "filename": "Sales.xlsx",
-        "sheet":    "Sales",
-        "required": ["SIM_ROUND", "SIM_STEP", "NET_VALUE", "SALES_ORDER_NUMBER"],
+    "LAX Cargo (Monthly Aggregate)": {
+        "filename": "lax_cargo.csv",
+        "type": "csv",
+        "required": ["ReportPeriod", "Arrival_Departure", "Domestic_International", "CargoType", "AirCargoTons"],
+        "description": "LAWA Open Data — monthly air freight and mail volumes at LAX (2006–2023). Source: data.lacity.org.",
     },
-    "Carbon Emissions": {
-        "filename": "Carbon Emissions.xlsx",
-        "sheet":    "Carbon_Emissions",
-        "required": ["SIM_ROUND", "SIM_STEP", "TOTAL_CO2E_EMISSIONS", "TYPE", "SCOPE"],
+    "LAX Sales (Per-Shipment)": {
+        "filename": "LAX_Sales.xlsx",
+        "type": "xlsx",
+        "sheet": "Sheet1",
+        "required": ["Date", "Revenue", "Carrier", "Origin_Airport", "Destination_Airport", "Weight_kg"],
+        "description": "Per-shipment LAX cargo data with LAWA tonnage, Freightos Air Index pricing, and carrier/route detail.",
     },
-    "Purchase Orders": {
-        "filename": "Purchase Orders.xlsx",
-        "sheet":    "Purchase_Orders",
-        "required": ["SIM_ROUND", "SIM_STEP", "GOODS_RECEIPT_ROUND", "GOODS_RECEIPT_STEP"],
+    "LAX Carbon Emissions (Per-Shipment)": {
+        "filename": "LAX_Carbon_Emissions.xlsx",
+        "type": "xlsx",
+        "sheet": "Carbon_Emissions",
+        "required": ["Date", "Route", "Total_CO2e_kg", "Scope_1_CO2e_kg", "Delivery_Status"],
+        "description": "Per-shipment carbon emissions using ICAO/DEFRA methodology. Includes Scope 1/2/3 and overstock penalties.",
     },
-    "Inventory": {
-        "filename": "Inventory.xlsx",
-        "sheet":    "Inventory",
-        "required": ["SIM_ROUND", "SIM_STEP"],
-    },
-    "Financial Postings": {
-        "filename": "Fianancial Postings.xlsx",
-        "sheet":    "Financial_Postings",
-        "required": ["SIM_ROUND", "SIM_STEP"],
+    "LAX Prices": {
+        "filename": "LAX_Prices.xlsx",
+        "type": "xlsx",
+        "sheet": "Sheet1",
+        "required": ["Date", "Price_USD_per_kg"],
+        "description": "Freightos Air Index (FAX) air cargo pricing by route and date.",
     },
 }
 
 
 def _read_best_sheet(uploaded_file, required_cols, preferred_sheet):
-    """Try preferred sheet first, then all others, returning the first that has all required columns."""
     xl = pd.ExcelFile(uploaded_file)
     sheets = (
         ([preferred_sheet] if preferred_sheet in xl.sheet_names else [])
@@ -76,54 +73,64 @@ def _file_info(path: Path):
     return f"{size_kb:.0f} KB"
 
 
-# ── Page ──────────────────────────────────────────────────────────────────────
-st.markdown("**Replace or augment CAPE datasets with your own ERPsim export files.**")
-st.caption(
-    "Uploaded files are validated for required columns before replacing the existing data. "
-    "All other CAPE pages reload automatically after a successful upload."
-)
-st.divider()
-
 # ── Current data status ───────────────────────────────────────────────────────
 st.subheader("Current Data")
+
 cols = st.columns(len(DATASETS))
 for i, (name, cfg) in enumerate(DATASETS.items()):
     info = _file_info(DATA_DIR / cfg["filename"])
+    short_name = name.split(" (")[0]
     with cols[i]:
         if info:
-            st.metric(name, info, help=cfg["filename"])
+            st.metric(short_name, info, help=cfg["filename"])
         else:
-            st.metric(name, "Missing", help=f"{cfg['filename']} not found in data/")
+            st.metric(short_name, "Missing", help=f"{cfg['filename']} not found in data/")
 
 st.divider()
 
 # ── Upload section ────────────────────────────────────────────────────────────
 st.subheader("Upload New Data")
 st.info(
-    "Files must be `.xlsx` format and contain the required columns. "
-    "Use the ERPsim export format. Uploading a file replaces the existing one for all pages.",
+    "Upload updated LAX cargo data (CSV) or ERPsim training files (XLSX). "
+    "Files are validated for required columns before replacing existing data.",
     icon="ℹ️",
 )
 
 for name, cfg in DATASETS.items():
     with st.expander(f"**{name}** — `{cfg['filename']}`"):
+        st.caption(cfg["description"])
         st.caption(f"Required columns: `{'`, `'.join(cfg['required'])}`")
+
+        file_types = ["csv"] if cfg["type"] == "csv" else ["xlsx"]
         uploaded = st.file_uploader(
             f"Choose {name} file",
-            type=["xlsx"],
+            type=file_types,
             key=f"upload_{name}",
         )
         if uploaded:
             with st.spinner("Validating..."):
-                df, matched_sheet = _read_best_sheet(uploaded, cfg["required"], cfg["sheet"])
+                if cfg["type"] == "csv":
+                    try:
+                        df = pd.read_csv(uploaded)
+                        if all(c in df.columns for c in cfg["required"]):
+                            matched = True
+                        else:
+                            matched = False
+                            df = None
+                    except Exception:
+                        df = None
+                        matched = False
+                else:
+                    df, sheet = _read_best_sheet(uploaded, cfg["required"], cfg.get("sheet", "Sheet1"))
+                    matched = df is not None
 
-            if df is None:
+            if not matched:
                 st.error(
-                    f"No sheet found with all required columns: `{'`, `'.join(cfg['required'])}`. "
-                    f"Check that you're uploading the correct ERPsim export."
+                    f"File missing required columns: `{'`, `'.join(cfg['required'])}`. "
+                    f"Check that you're uploading the correct file."
                 )
             else:
-                st.success(f"Valid — **{len(df):,} rows** found in sheet `{matched_sheet}`.")
+                st.success(f"Valid — **{len(df):,} rows** found.")
                 st.dataframe(df.head(3), use_container_width=True)
 
                 if st.button(f"Save and replace {name}", key=f"save_{name}", type="primary"):
@@ -138,25 +145,25 @@ for name, cfg in DATASETS.items():
 
 st.divider()
 
-# ── Notes ─────────────────────────────────────────────────────────────────────
-with st.expander("Notes on data format"):
+with st.expander("Notes on data format and sources"):
     st.markdown("""
-**Minimum column requirements per file:**
+**LAX Cargo (Monthly Aggregate) — `lax_cargo.csv`**
+Source: [LAWA Open Data Portal](https://data.lacity.org/Transportation/Los-Angeles-International-Airport-Air-Cargo-Volume/tx7r-x3hp).
+Monthly freight and mail tonnage at LAX, broken down by arrival/departure and domestic/international.
 
-| File | Required columns |
-|------|-----------------|
-| Sales.xlsx | `SIM_ROUND`, `SIM_STEP`, `NET_VALUE`, `SALES_ORDER_NUMBER` |
-| Carbon Emissions.xlsx | `SIM_ROUND`, `SIM_STEP`, `TOTAL_CO2E_EMISSIONS`, `TYPE`, `SCOPE` |
-| Purchase Orders.xlsx | `SIM_ROUND`, `SIM_STEP`, `GOODS_RECEIPT_ROUND`, `GOODS_RECEIPT_STEP` |
-| Inventory.xlsx | `SIM_ROUND`, `SIM_STEP` |
-| Financial Postings.xlsx | `SIM_ROUND`, `SIM_STEP` |
+**LAX Sales (Per-Shipment) — `LAX_Sales.xlsx`**
+LAWA tonnage combined with Freightos Air Index pricing. Revenue and cost are calculated from published pricing data.
+Carrier and product categories are representative values assigned for research demonstration.
 
-**Sheet names:** The uploader checks the preferred sheet name first (e.g. `Sales`, `Carbon_Emissions`),
-then searches all sheets for the required columns — so non-standard sheet names will still work
-as long as the columns are present.
+**LAX Carbon Emissions (Per-Shipment) — `LAX_Carbon_Emissions.xlsx`**
+Emissions calculated using ICAO Carbon Emissions Calculator methodology + UK DEFRA/BEIS GHG Conversion Factors.
+Includes a LAWA_Annual_Validation sheet with real airport-wide emissions (2013–2022) from LAWA Sustainability Reports.
+
+**LAX Prices — `LAX_Prices.xlsx`**
+Freightos Air Index (FAX) published air cargo pricing benchmark. Licensed as Freightos Data.
 
 **Deployment note:** On Streamlit Cloud, the filesystem is reset on each deployment.
 Uploaded files persist for the current session only.
 """)
 
-st.caption("CAPE Data Upload | SAIES Research | CSULA CIS | NSF Grant Project")
+st.caption("CAPE Data Upload | AI-Driven Analytics Platform | SAIES Research | CSULA CIS | NSF Grant Project")

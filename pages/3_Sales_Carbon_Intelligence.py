@@ -1,19 +1,15 @@
 """
 CAPE: Sales & Carbon Intelligence
 ===================================
-Connects ERPsim sales performance to carbon outcomes at the product-type
-and sales-org level. Answers: which product types and orgs earn the most
-while emitting the least?
-
-Place this file in: pages/3_Sales_Carbon_Intelligence.py
+Analyzes LAX air freight data to reveal carbon exposure patterns across
+carriers, routes, product categories, and delivery status.
 
 Data required (in data/ folder):
-  - Sales.xlsx             - ERPsim sales transactions
-  - Carbon Emissions.xlsx  - ERPsim carbon records (Scope 1/2/3)
+  - lax_cargo.csv           - LAWA monthly freight volume (2006-2023)
+  - LAX_Sales.xlsx           - Per-shipment LAX data with revenue/cost
+  - LAX_Carbon_Emissions.xlsx - Per-shipment emissions (ICAO/DEFRA methodology)
 
-Column names confirmed via validate_data.py on 2026-05-31.
-
-Author: SAIES Research Team · CSULA CIS · NSF Grant Project
+Author: Brian Ta · Daniel Ramirez | Advisor: Dr. Ming Wang | SAIES Research | CSULA CIS | NSF Grant Project
 """
 
 import streamlit as st
@@ -32,490 +28,384 @@ CORAL  = "#D85A30"
 PURPLE = "#7B4FA0"
 GRAY   = "#888780"
 
-RISK_THRESHOLD = 0.6
-
-# ── Confirmed column names ────────────────────────────────────────────────────
-COL_ROUND        = "SIM_ROUND"
-COL_STEP         = "SIM_STEP"
-COL_REVENUE      = "NET_VALUE"
-COL_COST         = "COST"
-COL_QTY          = "QUANTITY"
-COL_PRODUCT      = "MATERIAL_NUMBER"
-COL_PRODUCT_DESC = "MATERIAL_DESCRIPTION"
-COL_SALES_ORG    = "SALES_ORGANIZATION"
-COL_REGION       = "REGION"
-COL_CO2E         = "TOTAL_CO2E_EMISSIONS"
-COL_TYPE         = "TYPE"
-
-# German state → geographic group (for color coding)
-REGION_GROUP = {
-    "Hamburg":               "North",
-    "Bremen":                "North",
-    "Berlin":                "North",
-    "Nrth Rhine Westfalia":  "Central",
-    "Hessen":                "Central",
-    "Saarland":              "Central",
-    "Bavaria":               "South/East",
-    "Baden-Wurttemberg":     "South/East",
-    "Saxony":                "South/East",
-}
-GROUP_COLOR = {"North": BLUE, "Central": TEAL, "South/East": CORAL}
+AIR_CARBON_FACTOR = 1.13
+GROUND_CARBON_FACTOR = 0.023
+AVG_HAUL_MILES = 2500
 
 
 # ── Data loading ──────────────────────────────────────────────────────────────
 
 @st.cache_data
-def load_data():
+def load_lax_aggregate():
     data_dir = Path(__file__).parent.parent / "data"
     try:
-        sales  = pd.read_excel(data_dir / "Sales.xlsx")
-        carbon = pd.read_excel(data_dir / "Carbon Emissions.xlsx")
-        return sales, carbon, True
-    except FileNotFoundError:
-        return None, None, False
+        lax = pd.read_csv(data_dir / "lax_cargo.csv")
+        lax['AirCargoTons'] = lax['AirCargoTons'].str.replace(',', '').astype(float)
+        lax['date'] = pd.to_datetime(lax['ReportPeriod'], format='%b %Y')
+        lax['year'] = lax['date'].dt.year
+        lax['month'] = lax['date'].dt.month
+        return lax, True
     except Exception as e:
-        st.warning(f"Data load error: {e}")
-        return None, None, False
+        st.warning(f"Aggregate data load error: {e}")
+        return None, False
 
-
-def extract_product_type(material_number: pd.Series) -> pd.Series:
-    """
-    Convert material number (e.g. 'OO-T01') → product type ('T01').
-    Falls back to the raw value if the pattern doesn't match.
-    """
-    return material_number.str.extract(r"-?(T\d+)$", expand=False).fillna(
-        material_number
-    )
-
-
-def make_synthetic():
-    """Reference data matching CAPE research summary numbers."""
-    rows = [
-        ("R1",1,6.2,0.18),("R1",2,7.8,0.22),("R1",3,8.4,0.19),
-        ("R1",4,7.1,0.25),("R1",5,9.2,0.31),
-        ("R2",1,8.8,0.28),("R2",2,9.4,0.35),("R2",3,10.1,0.42),
-        ("R2",4,8.7,0.38),("R2",5,11.2,0.45),
-        ("R3",1,9.8,0.41),("R3",2,10.4,0.48),("R3",3,11.1,0.52),
-        ("R3",4,10.8,0.55),("R3",5,9.6,0.757),("R3",6,11.8,0.834),
-        ("R3",7,11.6,0.749),("R3",8,8.6,0.783),("R3",9,12.5,0.708),
-        ("R3",10,7.1,0.764),
-        ("R4",1,14.3,0.635),("R4",2,8.9,0.633),("R4",3,12.1,0.58),
-        ("R4",4,10.5,0.52),
-    ]
-    period_df = pd.DataFrame(rows, columns=["round","step","revenue_m","risk"])
-    period_df["label"] = period_df["round"] + "-S" + period_df["step"].astype(str)
-
-    product_df = pd.DataFrame({
-        "product_type": ["T01","T02","T03","T04","T05","T06"],
-        "product":      ["Type 01","Type 02","Type 03","Type 04","Type 05","Type 06"],
-        "revenue_m":    [8.9,7.6,9.2,6.8,8.1,7.2],
-        "intensity":    [0.079,0.118,0.092,0.171,0.082,0.143],
-        "units_k":      [4.2,3.1,3.8,2.4,3.6,2.1],
-        "risk_level":   ["low","medium","low","high","low","medium"],
-    })
-
-    org_df = pd.DataFrame({
-        "org":    ["O3","P3","Q3","R3","S3","T3","U3"],
-        "eff":    [41.0,37.2,29.7,27.5,24.9,23.7,19.4],
-    })
-
-    region_df = pd.DataFrame({
-        "region": list(REGION_GROUP.keys()),
-        "group":  list(REGION_GROUP.values()),
-        "eff":    [38.5,33.2,29.8,27.1,24.6,22.3,31.4,28.9,25.7],
-    })
-
-    return period_df, product_df, org_df, region_df
-
-
-# ── Metric computation ────────────────────────────────────────────────────────
 
 @st.cache_data
-def compute_metrics(sales: pd.DataFrame, carbon: pd.DataFrame):
+def load_lax_shipments():
+    data_dir = Path(__file__).parent.parent / "data"
     try:
-        # Period key
-        sales  = sales.copy()
-        carbon = carbon.copy()
-        sales["period"]  = sales[COL_ROUND].astype(str)  + "-S" + sales[COL_STEP].astype(str)
-        carbon["period"] = carbon[COL_ROUND].astype(str) + "-S" + carbon[COL_STEP].astype(str)
-
-        # ── 1. Period level ───────────────────────────────
-        rev_p = (sales.groupby(["period",COL_ROUND,COL_STEP])[COL_REVENUE]
-                 .sum().reset_index().rename(columns={COL_REVENUE:"revenue"}))
-        co2_p = (carbon.groupby([COL_ROUND,COL_STEP])[COL_CO2E]
-                 .sum().reset_index().rename(columns={COL_CO2E:"total_co2e"}))
-        period_df = rev_p.merge(co2_p, on=[COL_ROUND,COL_STEP], how="left")
-        period_df["co2e_intensity"] = period_df["total_co2e"] / period_df["revenue"]
-
-        os_mask = carbon[COL_TYPE].astype(str).str.lower().str.contains("overstock", na=False)
-        os_p = (carbon[os_mask].groupby([COL_ROUND,COL_STEP])[COL_CO2E]
-                .sum().reset_index().rename(columns={COL_CO2E:"overstock_co2e"}))
-        period_df = period_df.merge(os_p, on=[COL_ROUND,COL_STEP], how="left")
-        period_df["overstock_co2e"] = period_df["overstock_co2e"].fillna(0)
-
-        ci = period_df["co2e_intensity"]
-        os = period_df["overstock_co2e"]
-        ci_s = (ci - ci.min()) / (ci.max() - ci.min() + 1e-9)
-        os_s = (os - os.min()) / (os.max() - os.min() + 1e-9)
-        period_df["risk"] = ci_s * 0.70 + os_s * 0.30
-        period_df["revenue_m"] = period_df["revenue"] / 1_000_000
-        period_df["label"] = period_df["period"]
-        period_df = period_df.sort_values([COL_ROUND, COL_STEP]).reset_index(drop=True)
-
-        # ── 2. Product-TYPE level (group T01–T06 across all teams) ────────────
-        sales["product_type"] = extract_product_type(sales[COL_PRODUCT])
-        # Description: pick the most common description for each type
-        desc_map = (sales.groupby("product_type")[COL_PRODUCT_DESC]
-                    .agg(lambda x: x.mode().iloc[0] if not x.mode().empty else x.iloc[0])
-                    .reset_index().rename(columns={COL_PRODUCT_DESC:"product"}))
-
-        prod_p = (sales.groupby(["period", COL_ROUND, COL_STEP, "product_type"])[COL_REVENUE]
-                  .sum().reset_index().rename(columns={COL_REVENUE:"prod_revenue"}))
-        prod_p = prod_p.merge(period_df[["period","revenue","total_co2e"]], on="period", how="left")
-        prod_p["rev_share"] = prod_p["prod_revenue"] / prod_p["revenue"]
-        prod_p["attributed_co2e"] = prod_p["rev_share"] * prod_p["total_co2e"]
-
-        qty_pt = (sales.groupby("product_type")[COL_QTY]
-                  .sum().reset_index().rename(columns={COL_QTY:"units"}))
-
-        product_df = (prod_p.groupby("product_type")
-                      .agg(revenue_m=("prod_revenue","sum"),
-                           attributed_co2e=("attributed_co2e","sum"))
-                      .reset_index())
-        product_df = product_df.merge(desc_map,    on="product_type", how="left")
-        product_df = product_df.merge(qty_pt,      on="product_type", how="left")
-        product_df["revenue_m"] /= 1_000_000
-        product_df["intensity"]  = product_df["attributed_co2e"] / (product_df["revenue_m"] * 1_000_000)
-        product_df["units_k"]    = product_df["units"] / 1000
-        p33 = product_df["intensity"].quantile(0.33)
-        p67 = product_df["intensity"].quantile(0.67)
-        product_df["risk_level"] = product_df["intensity"].apply(
-            lambda x: "high" if x > p67 else ("low" if x < p33 else "medium"))
-
-        # ── 3. Sales-org level ───────────────────────────────────────────
-        org_p = (sales.groupby(["period",COL_ROUND,COL_STEP,COL_SALES_ORG])[COL_REVENUE]
-                 .sum().reset_index().rename(columns={COL_REVENUE:"org_revenue"}))
-        org_p = org_p.merge(period_df[["period","revenue","total_co2e"]], on="period", how="left")
-        org_p["rev_share"] = org_p["org_revenue"] / org_p["revenue"]
-        org_p["attributed_co2e"] = org_p["rev_share"] * org_p["total_co2e"]
-
-        org_df = (org_p.groupby(COL_SALES_ORG)
-                  .agg(revenue=("org_revenue","sum"),
-                       attributed_co2e=("attributed_co2e","sum"))
-                  .reset_index())
-        org_df["eff"] = org_df["revenue"] / org_df["attributed_co2e"]
-        org_df = org_df.sort_values("eff", ascending=False).reset_index(drop=True)
-        org_df.rename(columns={COL_SALES_ORG:"org"}, inplace=True)
-
-        # ── 4. Region level ───────────────────────────────────────────────
-        reg_p = (sales.groupby(["period",COL_ROUND,COL_STEP,COL_REGION])[COL_REVENUE]
-                 .sum().reset_index().rename(columns={COL_REVENUE:"reg_revenue"}))
-        reg_p = reg_p.merge(period_df[["period","revenue","total_co2e"]], on="period", how="left")
-        reg_p["rev_share"] = reg_p["reg_revenue"] / reg_p["revenue"]
-        reg_p["attributed_co2e"] = reg_p["rev_share"] * reg_p["total_co2e"]
-
-        region_df = (reg_p.groupby(COL_REGION)
-                     .agg(revenue=("reg_revenue","sum"),
-                          attributed_co2e=("attributed_co2e","sum"))
-                     .reset_index())
-        region_df["eff"] = region_df["revenue"] / region_df["attributed_co2e"]
-        region_df["group"] = region_df[COL_REGION].map(REGION_GROUP).fillna("Other")
-        region_df = region_df.sort_values("eff", ascending=False).reset_index(drop=True)
-        region_df.rename(columns={COL_REGION:"region"}, inplace=True)
-
-        return period_df, product_df, org_df, region_df
-
-    except KeyError as e:
-        st.error(f"Column not found: {e}. Re-run validate_data.py to diagnose.")
-        return None, None, None, None
-    except Exception as e:
-        st.error(f"Metric error: {e}")
-        return None, None, None, None
-
-
-# ── Charts ────────────────────────────────────────────────────────────────────
-
-def chart_time_series(period_df):
-    from plotly.subplots import make_subplots
-    fig = make_subplots(specs=[[{"secondary_y": True}]])
-
-    fig.add_trace(
-        go.Scatter(
-            x=period_df["label"], y=period_df["revenue_m"],
-            name="Revenue ($M)",
-            mode="lines+markers",
-            line=dict(color=TEAL, width=2),
-            fill="tozeroy", fillcolor="rgba(29,158,117,0.07)",
-            marker=dict(size=4),
-            hovertemplate="<b>%{x}</b><br>Revenue: $%{y:.3f}M<extra></extra>",
-        ),
-        secondary_y=False,
-    )
-    fig.add_trace(
-        go.Scatter(
-            x=period_df["label"], y=period_df["risk"],
-            name="CAPE Risk Score",
-            mode="lines+markers",
-            line=dict(color=RED, width=1.5, dash="dot"),
-            marker=dict(
-                size=[8 if r >= RISK_THRESHOLD else 3 for r in period_df["risk"]],
-                color=[RED if r >= RISK_THRESHOLD else "rgba(226,75,74,0.3)"
-                       for r in period_df["risk"]],
-            ),
-            hovertemplate="<b>%{x}</b><br>Risk: %{y:.3f}<extra></extra>",
-        ),
-        secondary_y=True,
-    )
-    fig.add_trace(
-        go.Scatter(
-            x=period_df["label"], y=[RISK_THRESHOLD] * len(period_df),
-            name="Threshold",
-            mode="lines",
-            line=dict(color="rgba(226,75,74,0.22)", width=1, dash="dash"),
-            hoverinfo="skip", showlegend=False,
-        ),
-        secondary_y=True,
-    )
-
-    fig.update_yaxes(
-        title_text="Revenue ($M)",
-        title_font=dict(color=TEAL, size=11),
-        tickfont=dict(color=TEAL, size=10),
-        tickprefix="$", ticksuffix="M",
-        showgrid=True, gridcolor="rgba(128,128,128,0.1)",
-        secondary_y=False,
-    )
-    fig.update_yaxes(
-        title_text="Risk Score",
-        title_font=dict(color=RED, size=11),
-        tickfont=dict(color=RED, size=10),
-        range=[0, 1.05],
-        showgrid=False,
-        secondary_y=True,
-    )
-    fig.update_layout(
-        height=230, margin=dict(t=10, b=45, l=55, r=55),
-        plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-        xaxis=dict(showgrid=False, tickangle=45, tickfont=dict(size=9), automargin=True),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02,
-                    xanchor="left", x=0, font=dict(size=11)),
-        hovermode="x unified",
-    )
-    return fig
-
-
-def chart_bubble(product_df):
-    fig = px.scatter(
-        product_df,
-        x="revenue_m", y="intensity",
-        size="units_k",
-        color="risk_level",
-        color_discrete_map={"low": TEAL, "medium": AMBER, "high": RED},
-        hover_name="product",
-        hover_data={
-            "product_type": True,
-            "revenue_m":    ":.3f",
-            "intensity":    ":.4f",
-            "units_k":      ":.1f",
-            "risk_level":   False,
-        },
-        labels={
-            "revenue_m":    "Revenue ($M)",
-            "intensity":    "Carbon intensity (kg CO₂e / $)",
-            "units_k":      "Units (thousands)",
-            "product_type": "Type",
-            "risk_level":   "Risk",
-        },
-        size_max=32,
-    )
-    fig.update_layout(
-        height=270,
-        margin=dict(t=10,b=10,l=10,r=10),
-        plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-        xaxis=dict(tickprefix="$", ticksuffix="M",
-                   showgrid=True, gridcolor="rgba(128,128,128,0.1)",
-                   title_font=dict(size=11), tickfont=dict(size=10)),
-        yaxis=dict(showgrid=True, gridcolor="rgba(128,128,128,0.1)",
-                   title_font=dict(size=11), tickfont=dict(size=10)),
-        legend=dict(title="Risk level", font=dict(size=11)),
-    )
-    return fig
-
-
-def chart_org_bar(org_df):
-    org_sorted = org_df.sort_values("eff", ascending=True).copy()
-    n = len(org_sorted)
-    # Green→red gradient: best org = teal, worst = red
-    palette = [RED, CORAL, "#C96530", AMBER, AMBER, "#2DB882", TEAL]
-    colors = palette[:n] if n <= 7 else [TEAL] * n
-
-    fig = go.Figure(go.Bar(
-        x=org_sorted["eff"],
-        y=org_sorted["org"],
-        orientation="h",
-        marker_color=colors,
-        hovertemplate="<b>%{y}</b><br>$%{x:.1f} revenue / kg CO₂e<extra></extra>",
-    ))
-    fig.update_layout(
-        height=270,
-        margin=dict(t=10,b=10,l=10,r=10),
-        plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-        xaxis=dict(title="$ per kg CO₂e", tickprefix="$",
-                   showgrid=True, gridcolor="rgba(128,128,128,0.1)",
-                   title_font=dict(size=11), tickfont=dict(size=10)),
-        yaxis=dict(showgrid=False, tickfont=dict(size=11)),
-        showlegend=False,
-    )
-    return fig
-
-
-def chart_region_bar(region_df):
-    region_sorted = region_df.sort_values("eff", ascending=True).copy()
-    region_sorted["color"] = region_sorted["group"].map(GROUP_COLOR).fillna(GRAY)
-
-    fig = go.Figure(go.Bar(
-        x=region_sorted["eff"],
-        y=region_sorted["region"],
-        orientation="h",
-        marker_color=region_sorted["color"].tolist(),
-        customdata=region_sorted["group"],
-        hovertemplate="<b>%{y}</b> (%{customdata})<br>$%{x:.1f} revenue / kg CO₂e<extra></extra>",
-    ))
-    fig.update_layout(
-        height=270,
-        margin=dict(t=10,b=10,l=10,r=10),
-        plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-        xaxis=dict(title="$ per kg CO₂e", tickprefix="$",
-                   showgrid=True, gridcolor="rgba(128,128,128,0.1)",
-                   title_font=dict(size=11), tickfont=dict(size=10)),
-        yaxis=dict(showgrid=False, tickfont=dict(size=10)),
-        showlegend=False,
-    )
-    return fig
+        sales = pd.read_excel(data_dir / "LAX_Sales.xlsx")
+        carbon = pd.read_excel(data_dir / "LAX_Carbon_Emissions.xlsx", sheet_name="Carbon_Emissions")
+        return sales, carbon, True
+    except Exception:
+        return None, None, False
 
 
 # ── Page ──────────────────────────────────────────────────────────────────────
 
 def main():
-    # ── Load data ──────────────────────────────────────────────────────────────
-    sales, carbon, data_ok = load_data()
-    if data_ok:
-        period_df, product_df, org_df, region_df = compute_metrics(sales, carbon)
-        using_live = period_df is not None
-    else:
-        using_live = False
+    lax, agg_ok = load_lax_aggregate()
+    sales, carbon, ship_ok = load_lax_shipments()
 
-    if not using_live:
-        period_df, product_df, org_df, region_df = make_synthetic()
-        st.info(
-            "**Reference mode**: showing research summary values. "
-            "Add `Sales.xlsx` and `Carbon Emissions.xlsx` to `data/` to load live data.",
-            icon="ℹ️",
-        )
+    if not agg_ok and not ship_ok:
+        st.error("Could not load LAX data. Ensure data files are in the `data/` folder.")
+        st.stop()
+
+    freight = lax[lax['CargoType'] == 'Freight'] if agg_ok else pd.DataFrame()
+    mail = lax[lax['CargoType'] == 'Mail'] if agg_ok else pd.DataFrame()
 
     # ── Header ────────────────────────────────────────────────────────────────
     st.markdown("### 📊 Sales & Carbon Intelligence")
+    st.markdown("##### Team")
+    st.markdown("Brian Ta · Daniel Ramirez")
+    st.markdown("##### Advisor")
+    st.markdown("Dr. Ming Wang")
+    st.caption("CSULA CIS | SAIES Research | NSF Grant Project")
     st.caption(
-        "Which product types and organizations bring in the most revenue while producing "
-        "the least carbon? This page connects sales performance to carbon outcomes, "
-        "filling the gap that standard revenue reports leave out."
+        "How much carbon does LAX air freight generate? Which routes and directions "
+        "are the most carbon-intensive? This page estimates carbon exposure from "
+        "18 years of LAX air cargo data and identifies where the biggest opportunities "
+        "for emissions reduction exist."
     )
     st.divider()
 
-    # ── Key finding FIRST ─────────────────────────────────────────────────────
-    period_df["round_id"] = period_df["label"].str.split("-").str[0]
-    sorted_rounds = sorted(period_df["round_id"].unique())
-    r2_id = sorted_rounds[1] if len(sorted_rounds) > 1 else None
-    r3_id = sorted_rounds[2] if len(sorted_rounds) > 2 else None
-    r2 = period_df[period_df["round_id"] == r2_id] if r2_id else pd.DataFrame()
-    r3 = period_df[period_df["round_id"] == r3_id] if r3_id else pd.DataFrame()
-    r2_rev  = r2["revenue_m"].sum()
-    r3_rev  = r3["revenue_m"].sum()
-    r2_risk = r2["risk"].mean()
-    r3_risk = r3["risk"].mean()
-    rev_delta  = ((r3_rev  - r2_rev)  / r2_rev  * 100) if r2_rev  > 0 else None
-    risk_delta = ((r3_risk - r2_risk) / r2_risk * 100) if r2_risk > 0 else None
-    best_type  = product_df.loc[product_df["intensity"].idxmin(), "product_type"]
-    worst_type = product_df.loc[product_df["intensity"].idxmax(), "product_type"]
-    best_name  = product_df.loc[product_df["intensity"].idxmin(), "product"]
-    worst_name = product_df.loc[product_df["intensity"].idxmax(), "product"]
-    ratio      = product_df["intensity"].max() / product_df["intensity"].min()
-    rev_str  = f"**{rev_delta:.0f}%**"  if rev_delta  is not None else "a different amount"
-    risk_str = f"**{risk_delta:.0f}%**" if risk_delta is not None else "at a higher rate"
+    # ── Compute metrics ──────────────────────────────────────────────────────
+    total_freight = freight['AirCargoTons'].sum()
+    total_mail = mail['AirCargoTons'].sum()
+
+    intl_freight = freight[freight['Domestic_International'] == 'International']['AirCargoTons'].sum()
+    dom_freight = freight[freight['Domestic_International'] == 'Domestic']['AirCargoTons'].sum()
+    arrival_freight = freight[freight['Arrival_Departure'] == 'Arrival']['AirCargoTons'].sum()
+    departure_freight = freight[freight['Arrival_Departure'] == 'Departure']['AirCargoTons'].sum()
+
+    est_air_co2e = total_freight * AVG_HAUL_MILES * AIR_CARBON_FACTOR / 1e6  # million kg
+    est_ground_co2e = total_freight * AVG_HAUL_MILES * GROUND_CARBON_FACTOR / 1e6
+    carbon_multiplier = est_air_co2e / est_ground_co2e if est_ground_co2e > 0 else 49
+
+    yearly_freight = freight.groupby('year')['AirCargoTons'].sum()
+    peak_year = yearly_freight.idxmax()
+    peak_year_val = yearly_freight.max()
+
+    yearly_freight_2019 = yearly_freight.get(2019, 0)
+    yearly_freight_2021 = yearly_freight.get(2021, 0)
+    surge_pct = (yearly_freight_2021 / yearly_freight_2019 - 1) * 100 if yearly_freight_2019 > 0 else 0
+
+    # ── Key Finding ──────────────────────────────────────────────────────────
     st.warning(
-        f"🔍 **Key Finding:** From Round 2 to Round 3, revenue went up {rev_str} while "
-        f"average carbon risk climbed {risk_str} over the same stretch. "
-        f"{best_name} ({best_type}) had the lowest carbon intensity and "
-        f"{worst_name} ({worst_type}) the highest — a **{ratio:.1f}x** gap. "
-        f"Shifting the sales mix toward lower-intensity products reduces carbon exposure without giving up revenue."
+        f"🔍 **Key Finding:** LAX handled **{total_freight/1e6:.1f} million tons** of air freight "
+        f"from 2006–2023. If this cargo had moved by ground instead of air, estimated carbon "
+        f"emissions would have been **{carbon_multiplier:.0f}x lower** — a difference of approximately "
+        f"**{(est_air_co2e - est_ground_co2e):,.0f} million kg CO2e**. International routes account for "
+        f"{intl_freight/total_freight*100:.1f}% of all freight, making them the largest carbon exposure."
     )
     st.divider()
 
-    # ── KPI cards ─────────────────────────────────────────────────────────────
-    total_rev     = product_df["revenue_m"].sum()
-    avg_intensity = (product_df["intensity"] * product_df["revenue_m"]).sum() / product_df["revenue_m"].sum()
-    best_region   = region_df.iloc[0]["region"] if not region_df.empty else "N/A"
-    best_reg_eff  = region_df.iloc[0]["eff"]    if not region_df.empty else 0
-    high_risk_n   = (product_df["risk_level"] == "high").sum()
-    total_types   = len(product_df)
-
+    # ── KPI cards ────────────────────────────────────────────────────────────
     c1, c2, c3, c4 = st.columns(4)
     with c1:
-        st.metric("Total Revenue", f"${total_rev:.3f}M",
-                  help="Sum across all simulation periods and product types")
+        st.metric("Total Freight", f"{total_freight/1e6:.1f}M tons",
+                  help="Total LAX air freight volume 2006–2023")
     with c2:
-        st.metric("Avg Carbon Intensity", f"{avg_intensity:.4f}",
-                  help="kg CO2e per dollar of revenue, revenue-weighted")
+        st.metric("Est. Air CO2e", f"{est_air_co2e:,.0f}M kg",
+                  help=f"Estimated carbon from air transport ({AIR_CARBON_FACTOR} kg CO2e/ton-mile × {AVG_HAUL_MILES} avg miles)")
     with c3:
-        st.metric("Most Efficient Region", best_region,
-                  help=f"${best_reg_eff:.1f} revenue per kg CO2e")
+        st.metric("International Share", f"{intl_freight/total_freight*100:.1f}%",
+                  help="Percentage of freight that is international (longer routes = more carbon)")
     with c4:
-        st.metric("High-Risk Product Types", f"{high_risk_n} of {total_types}",
-                  help="Top third of product types by carbon intensity")
+        st.metric("2021 Surge", f"+{surge_pct:.1f}%",
+                  help="Year-over-year increase from 2019 to 2021 (COVID supply chain disruption)")
 
     st.markdown("")
 
-    # ── Time series ───────────────────────────────────────────────────────────
-    st.markdown("**Revenue vs. CAPE Carbon Risk Score by simulation period**")
-    st.caption(
-        "Revenue and carbon risk tracked together in Round 3. "
-        "Periods with a risk score above 0.6 are flagged with larger dots."
-    )
-    st.plotly_chart(chart_time_series(period_df), use_container_width=True)
+    # ── Time series: Freight volume with estimated CO2e ──────────────────────
+    yearly_df = freight.groupby('year')['AirCargoTons'].sum().reset_index()
+    yearly_df.columns = ['Year', 'Freight_Tons']
+    yearly_df['Est_CO2e_M_kg'] = yearly_df['Freight_Tons'] * AVG_HAUL_MILES * AIR_CARBON_FACTOR / 1e6
 
-    # ── Row 2: Bubble + Org bar ───────────────────────────────────────────────
-    col_bub, col_org = st.columns([0.55, 0.45])
+    from plotly.subplots import make_subplots
+    fig_ts = make_subplots(specs=[[{"secondary_y": True}]])
+    fig_ts.add_trace(
+        go.Bar(x=yearly_df['Year'], y=yearly_df['Freight_Tons'],
+               name='Freight (tons)', marker_color=TEAL, opacity=0.7,
+               hovertemplate='<b>%{x}</b><br>%{y:,.0f} tons<extra></extra>'),
+        secondary_y=False)
+    fig_ts.add_trace(
+        go.Scatter(x=yearly_df['Year'], y=yearly_df['Est_CO2e_M_kg'],
+                   name='Est. CO2e (M kg)', mode='lines+markers',
+                   line=dict(color=RED, width=2), marker=dict(size=6),
+                   hovertemplate='<b>%{x}</b><br>%{y:,.0f}M kg CO2e<extra></extra>'),
+        secondary_y=True)
+    fig_ts.update_layout(
+        height=350, margin=dict(t=30, b=40),
+        plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0))
+    fig_ts.update_yaxes(title_text="Freight (tons)", secondary_y=False,
+                        showgrid=True, gridcolor="rgba(128,128,128,0.1)")
+    fig_ts.update_yaxes(title_text="Est. CO2e (M kg)", secondary_y=True, showgrid=False)
+    st.markdown("**Annual Freight Volume vs Estimated Carbon Emissions**")
+    st.caption("Bars show total freight tonnage. The red line shows estimated carbon emissions — they move in lockstep because more air freight = more carbon.")
+    st.plotly_chart(fig_ts, use_container_width=True)
 
-    with col_bub:
-        st.markdown("**Product type vs. carbon intensity**")
+    # ── Row 2: Route breakdown + Direction breakdown ─────────────────────────
+    col_route, col_dir = st.columns(2)
+
+    with col_route:
+        st.markdown("**Domestic vs International Freight**")
         st.caption(
-            "Each bubble is one product type (T01 through T06) across all teams combined. "
-            "Bubble size shows total units sold. Hover over any bubble for exact numbers."
+            "International routes are longer and generate more carbon per shipment. "
+            "This breakdown shows where the freight is going."
         )
-        st.plotly_chart(chart_bubble(product_df), use_container_width=True)
+        route_df = freight.groupby(['year', 'Domestic_International'])['AirCargoTons'].sum().reset_index()
+        fig_route = px.bar(route_df, x='year', y='AirCargoTons',
+                          color='Domestic_International',
+                          color_discrete_map={'International': BLUE, 'Domestic': TEAL},
+                          labels={'AirCargoTons': 'Freight (tons)', 'year': 'Year',
+                                  'Domestic_International': 'Route'},
+                          barmode='stack')
+        fig_route.update_layout(
+            height=300, margin=dict(t=10, b=10),
+            plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0))
+        st.plotly_chart(fig_route, use_container_width=True)
 
-    with col_org:
-        st.markdown("**Carbon efficiency by team**")
+    with col_dir:
+        st.markdown("**Arrivals vs Departures**")
         st.caption(
-            "How much revenue each team generated per kg of CO2e. "
-            "Higher is better. Green bars are the most efficient."
+            "Are we importing more than we export? Imbalances mean empty return flights — "
+            "wasted fuel and carbon on planes flying back without full loads."
         )
-        st.plotly_chart(chart_org_bar(org_df), use_container_width=True)
+        dir_df = freight.groupby(['year', 'Arrival_Departure'])['AirCargoTons'].sum().reset_index()
+        fig_dir = px.bar(dir_df, x='year', y='AirCargoTons',
+                        color='Arrival_Departure',
+                        color_discrete_map={'Arrival': CORAL, 'Departure': AMBER},
+                        labels={'AirCargoTons': 'Freight (tons)', 'year': 'Year',
+                                'Arrival_Departure': 'Direction'},
+                        barmode='group')
+        fig_dir.update_layout(
+            height=300, margin=dict(t=10, b=10),
+            plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0))
+        st.plotly_chart(fig_dir, use_container_width=True)
 
-    # ── Row 3: Region bar (full width) ────────────────────────────────────────
-    st.markdown("**Carbon efficiency by region**")
-    lc = st.columns(4)
-    lc[0].markdown(f"<span style='color:{BLUE};font-size:11px;'>■ North</span>", unsafe_allow_html=True)
-    lc[1].markdown(f"<span style='color:{TEAL};font-size:11px;'>■ Central</span>", unsafe_allow_html=True)
-    lc[2].markdown(f"<span style='color:{CORAL};font-size:11px;'>■ South/East</span>", unsafe_allow_html=True)
+    # ── Row 3: Carbon intensity by route type ────────────────────────────────
+    st.markdown("**Estimated Carbon Exposure by Route Type**")
     st.caption(
-        "Revenue per kg CO2e broken down by German state. "
-        "Color shows geographic group."
+        "International freight travels farther, so each ton generates more carbon. "
+        "This chart estimates the carbon difference between domestic and international routes."
     )
-    st.plotly_chart(chart_region_bar(region_df), use_container_width=True)
+
+    intl_yearly = freight[freight['Domestic_International'] == 'International'].groupby('year')['AirCargoTons'].sum()
+    dom_yearly = freight[freight['Domestic_International'] == 'Domestic'].groupby('year')['AirCargoTons'].sum()
+    intl_co2e = (intl_yearly * 4000 * AIR_CARBON_FACTOR / 1e6).reset_index()  # ~4000 mi avg intl
+    dom_co2e = (dom_yearly * 1500 * AIR_CARBON_FACTOR / 1e6).reset_index()    # ~1500 mi avg domestic
+    intl_co2e.columns = ['Year', 'CO2e_M_kg']
+    dom_co2e.columns = ['Year', 'CO2e_M_kg']
+    intl_co2e['Route'] = 'International'
+    dom_co2e['Route'] = 'Domestic'
+    combined_co2e = pd.concat([intl_co2e, dom_co2e])
+
+    fig_carbon = px.bar(combined_co2e, x='Year', y='CO2e_M_kg',
+                       color='Route',
+                       color_discrete_map={'International': BLUE, 'Domestic': TEAL},
+                       labels={'CO2e_M_kg': 'Est. CO2e (M kg)', 'Year': 'Year'},
+                       barmode='stack')
+    fig_carbon.update_layout(
+        height=300, margin=dict(t=10, b=10),
+        plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0))
+    st.plotly_chart(fig_carbon, use_container_width=True)
+
+    # ── Seasonal pattern ─────────────────────────────────────────────────────
+    st.markdown("**Monthly Freight Pattern (averaged across all years)**")
+    st.caption(
+        "Air freight has a seasonal cycle. Understanding when volumes peak helps predict "
+        "when carbon risk is highest and when mode-switching is most likely."
+    )
+    month_names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+    monthly_avg = freight.groupby('month')['AirCargoTons'].mean().reset_index()
+    monthly_avg['Month'] = monthly_avg['month'].map(lambda m: month_names[m-1])
+
+    fig_season = px.bar(monthly_avg, x='Month', y='AirCargoTons',
+                       color='AirCargoTons', color_continuous_scale='Blues',
+                       labels={'AirCargoTons': 'Avg Monthly Freight (tons)', 'Month': ''})
+    fig_season.update_layout(
+        height=280, margin=dict(t=10, b=10),
+        plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+        xaxis=dict(categoryorder='array', categoryarray=month_names),
+        showlegend=False)
+    st.plotly_chart(fig_season, use_container_width=True)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # PER-SHIPMENT ANALYSIS (from LAX_Sales.xlsx + LAX_Carbon_Emissions.xlsx)
+    # ══════════════════════════════════════════════════════════════════════════
+    if ship_ok:
+        st.divider()
+        st.header("🔬 Per-Shipment Carbon Analysis (2020–2023)")
+        st.caption(
+            "This section uses per-shipment data with emissions calculated using ICAO/DEFRA methodology. "
+            "Data sources: LAWA Open Data Portal (tonnage), Freightos Air Index (pricing), "
+            "ICAO Carbon Emissions Calculator + UK DEFRA/BEIS GHG Conversion Factors (emission factors)."
+        )
+        st.divider()
+
+        total_co2e = carbon['Total_CO2e_kg'].sum()
+        total_rev = sales['Revenue'].sum()
+        total_cost_usd = carbon['Carbon_Cost_USD'].sum()
+
+        # ── Scope breakdown ──────────────────────────────────────────────────
+        scope_col1, scope_col2, scope_col3, scope_col4 = st.columns(4)
+        with scope_col1:
+            st.metric("Total CO2e", f"{total_co2e/1e9:.2f}B kg",
+                      help="Total carbon emissions across all shipments (ICAO/DEFRA methodology)")
+        with scope_col2:
+            st.metric("Scope 1 (Direct)", f"{carbon['Scope_1_CO2e_kg'].sum()/1e9:.2f}B kg",
+                      help="Direct flight emissions — fuel burned during transport")
+        with scope_col3:
+            st.metric("Scope 2 (Electricity)", f"{carbon['Scope_2_CO2e_kg'].sum()/1e6:.0f}M kg",
+                      help="Facility and ground operations electricity at airports")
+        with scope_col4:
+            st.metric("Scope 3 (Supply Chain)", f"{carbon['Scope_3_CO2e_kg'].sum()/1e9:.2f}B kg",
+                      help="Upstream supply chain emissions — fuel production, aircraft manufacturing, etc.")
+
+        st.divider()
+
+        # ── Top carriers and routes ──────────────────────────────────────────
+        col_carrier, col_route = st.columns(2)
+
+        with col_carrier:
+            st.markdown("**Carbon Emissions by Carrier**")
+            st.caption("Which airlines produce the most carbon on LAX routes? Longer routes and heavier loads drive higher emissions.")
+            carrier_co2e = carbon.dropna(subset=["Carrier"]).groupby('Carrier')['Total_CO2e_kg'].sum().sort_values(ascending=True).reset_index()
+            carrier_co2e['Total_CO2e_B'] = carrier_co2e['Total_CO2e_kg'] / 1e9
+            fig_carrier = px.bar(carrier_co2e, x='Total_CO2e_B', y='Carrier',
+                                orientation='h', color='Total_CO2e_B',
+                                color_continuous_scale='Reds',
+                                labels={'Total_CO2e_B': 'CO2e (Billion kg)', 'Carrier': ''})
+            fig_carrier.update_layout(
+                height=300, margin=dict(t=10, b=10, l=10, r=10),
+                plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                showlegend=False)
+            st.plotly_chart(fig_carrier, use_container_width=True)
+
+        with col_route:
+            st.markdown("**Carbon Emissions by Route**")
+            st.caption("Which LAX routes generate the most carbon? Longer international routes dominate.")
+            route_co2e = carbon.dropna(subset=["Route"]).groupby('Route')['Total_CO2e_kg'].sum().sort_values(ascending=True).reset_index()
+            route_co2e['Total_CO2e_B'] = route_co2e['Total_CO2e_kg'] / 1e9
+            fig_route = px.bar(route_co2e, x='Total_CO2e_B', y='Route',
+                              orientation='h', color='Total_CO2e_B',
+                              color_continuous_scale='Oranges',
+                              labels={'Total_CO2e_B': 'CO2e (Billion kg)', 'Route': ''})
+            fig_route.update_layout(
+                height=300, margin=dict(t=10, b=10, l=10, r=10),
+                plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                showlegend=False)
+            st.plotly_chart(fig_route, use_container_width=True)
+
+        # ── Product categories and delivery status ───────────────────────────
+        col_prod, col_status = st.columns(2)
+
+        with col_prod:
+            st.markdown("**Carbon by Product Category**")
+            st.caption("What types of cargo generate the most emissions at LAX?")
+            prod_co2e = carbon.dropna(subset=["Material/Product"]).groupby('Material/Product')['Total_CO2e_kg'].sum().sort_values(ascending=True).reset_index()
+            prod_co2e['Total_CO2e_B'] = prod_co2e['Total_CO2e_kg'] / 1e9
+            fig_prod = px.bar(prod_co2e, x='Total_CO2e_B', y='Material/Product',
+                             orientation='h', color='Total_CO2e_B',
+                             color_continuous_scale='Blues',
+                             labels={'Total_CO2e_B': 'CO2e (Billion kg)', 'Material/Product': ''})
+            fig_prod.update_layout(
+                height=300, margin=dict(t=10, b=10, l=10, r=10),
+                plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                showlegend=False)
+            st.plotly_chart(fig_prod, use_container_width=True)
+
+        with col_status:
+            st.markdown("**Late Delivery Carbon Penalty**")
+            st.caption(
+                "Late and at-risk shipments incur extra carbon from re-routing and warehousing. "
+                "This is the core CAPE thesis: late orders drive avoidable carbon."
+            )
+            status_co2e = carbon.dropna(subset=["Delivery_Status"]).groupby('Delivery_Status').agg(
+                total_co2e=('Total_CO2e_kg', 'sum'),
+                overstock=('Overstock_CO2e_kg', 'sum'),
+                count=('Total_CO2e_kg', 'count')
+            ).reset_index()
+            fig_status = go.Figure()
+            fig_status.add_trace(go.Bar(
+                x=status_co2e['Delivery_Status'], y=status_co2e['total_co2e'] / 1e9,
+                name='Shipment CO2e', marker_color=TEAL))
+            fig_status.add_trace(go.Bar(
+                x=status_co2e['Delivery_Status'], y=status_co2e['overstock'] / 1e6,
+                name='Overstock Penalty (M kg)', marker_color=RED))
+            fig_status.update_layout(
+                height=300, margin=dict(t=10, b=10),
+                plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                barmode='group',
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0))
+            st.plotly_chart(fig_status, use_container_width=True)
+
+        # ── Revenue vs Carbon Cost ───────────────────────────────────────────
+        st.markdown("**Revenue vs Carbon Cost by Shipment**")
+        st.caption("Each dot is a shipment. Dots higher up and to the right generate more carbon per dollar earned.")
+        fig_scatter = px.scatter(
+            carbon.merge(sales[['Date', 'Revenue']], on='Date', how='left').dropna(subset=['Revenue']),
+            x='Revenue', y='Total_CO2e_kg',
+            color='Delivery_Status',
+            size='Weight_tonnes',
+            color_discrete_map={'On-Time': TEAL, 'Late': RED, 'At-Risk': AMBER},
+            hover_data=['Route', 'Material/Product', 'Carrier'],
+            labels={'Revenue': 'Revenue ($)', 'Total_CO2e_kg': 'Total CO2e (kg)'})
+        fig_scatter.update_layout(
+            height=350, margin=dict(t=10, b=10),
+            plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0))
+        st.plotly_chart(fig_scatter, use_container_width=True)
+
+    # ── Key takeaways ────────────────────────────────────────────────────────
+    st.divider()
+    st.markdown("#### Key Takeaways")
+
+    takeaways = []
+    if agg_ok and len(freight) > 0:
+        takeaways.extend([
+            f"**International freight dominates carbon exposure** — {intl_freight/total_freight*100:.1f}% of volume but an even larger share of emissions due to longer distances",
+            f"**Arrivals exceed departures** — LAX receives {arrival_freight/total_freight*100:.1f}% of freight as arrivals, indicating a trade imbalance that means partially empty return flights",
+            f"**The 2021 spike was a carbon event** — the +{surge_pct:.0f}% surge in air freight during COVID wasn't just a logistics problem, it was a carbon problem",
+        ])
+    if ship_ok:
+        late_count = len(carbon[carbon['Delivery_Status'] == 'Late'])
+        overstock_total = carbon['Overstock_CO2e_kg'].sum()
+        takeaways.extend([
+            f"**Late deliveries create avoidable carbon** — {late_count} late shipments generated {overstock_total:,.0f} kg in overstock carbon penalties",
+            "**Scope 1 (direct flight) is the dominant emission source** — reducing flight distance or shifting to ground transport has the biggest impact",
+        ])
+    takeaways.append("**Mode-switching is the key lever** — every ton shifted from air to ground reduces carbon by ~49x per ton-mile")
+
+    st.markdown("\n".join(f"- {t}" for t in takeaways))
 
     st.divider()
-    st.caption("Sales & Carbon Intelligence | SAIES Research | CSULA CIS | NSF Grant Project")
+    st.caption("Sales & Carbon Intelligence | AI-Driven Analytics Platform | SAIES Research | CSULA CIS | NSF Grant Project")
 
 
 main()
