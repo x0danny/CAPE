@@ -6,8 +6,7 @@ st.title("📁 Data & Downloads")
 st.markdown("**Download CAPE datasets or upload your own LAX data**")
 st.caption(
     "CAPE analyzes LAX air freight data to predict carbon risk from supply chain mode-switching. "
-    "Upload updated LAX cargo data to extend the analysis, or upload ERPsim files to retrain "
-    "CAPE's predictive model with different simulation scenarios."
+    "Download the datasets used in the analysis, or upload updated LAX cargo data to extend the research."
 )
 st.divider()
 
