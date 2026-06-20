@@ -198,10 +198,50 @@ additional data requirements.
 st.divider()
 
 st.info(
-    "💡 **The bottom line:** Air freight produces ~49x more carbon than ground transport per ton-mile. "
+    "💡 **The bottom line:** Air freight produces ~49x more carbon than ground transport per ton-mile "
+    "([EPA, 2023](https://www.epa.gov/greenvehicles/fast-facts-transportation-greenhouse-gas-emissions)). "
     "Every shipment that can be kept on the ground — or prevented from becoming a late, emergency "
     "air shipment — is a direct carbon reduction. CAPE makes this visible before the decision is made."
 )
+
+st.divider()
+
+# ══════════════════════════════════════════════════════════════════════════════
+# LIMITATIONS
+# ══════════════════════════════════════════════════════════════════════════════
+st.header("⚠️ Limitations & Transparency")
+st.markdown("""
+This section acknowledges what CAPE can and cannot claim, so reviewers and users
+can evaluate the findings with full context.
+
+**1. Simulation vs. real-world data**
+CAPE's risk model was trained on ERPsim — a classroom supply chain simulation, not production
+ERP data. The model has not been tested on real order-level data from LAX or any logistics company.
+The simulation results and LAX freight trends are presented as **corroboration** (they show the
+same pattern), not as formal statistical validation.
+
+**2. Correlation, not causation**
+The link between supply chain stress in the simulation and air freight surges at LAX is
+**correlational**. CAPE shows that these patterns move together — it does not prove that one
+causes the other.
+
+**3. Estimated emission factors**
+Per-shipment carbon emissions use published ICAO/DEFRA conversion factors, not direct
+measurements. The ~49x air-vs-ground multiplier is consistent with EPA and industry
+estimates but varies by aircraft type, load factor, and route.
+
+**4. Representative carrier and product data**
+The per-shipment LAX data (carriers, product categories, delivery status) includes
+**representative values assigned for research demonstration**. The LAWA Open Data Portal
+reports aggregate tonnage only — it does not publish carrier-level or shipment-level detail.
+This is fully documented in the Data Sources & Methodology document available on the
+Data & Downloads page.
+
+**5. Model reproducibility**
+The Random Forest model's feature importances are reported from the training notebook
+(`CAPE_Analysis`). The training code and parameters are available in the repository for
+replication, but the ERPsim data requires a SAP University Alliance license to regenerate.
+""")
 
 st.divider()
 st.caption("CAPE — Key Findings & Recommendations | AI-Driven Analytics Platform | SAIES Research | CSULA CIS | NSF Grant Project")

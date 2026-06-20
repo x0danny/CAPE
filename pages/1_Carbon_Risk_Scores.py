@@ -122,7 +122,7 @@ high_risk.columns = ['Period', 'Revenue ($)', 'Total CO2e', 'Overstock CO2e', 'C
 st.dataframe(high_risk, use_container_width=True)
 
 st.divider()
-st.subheader("✈️ LAX Air Freight Validation — 18 Years of Data (2006–2023)")
+st.subheader("✈️ LAX Air Freight Corroboration — 18 Years of Data (2006–2023)")
 st.caption("This section connects CAPE's simulation findings to real-world LAX air freight data. The question: does LAX air cargo data support CAPE's predictions about carbon risk during supply chain stress?")
 
 lax = load_lax_aggregate()
@@ -201,29 +201,37 @@ st.divider()
 st.subheader("🤖 CAPE Order Risk Model")
 
 col_r1, col_r2, col_r3 = st.columns(3)
-col_r1.metric("Model Type", "Random Forest")
-col_r2.metric("CV Accuracy", "94.2% ±3.3%")
-col_r3.metric("Top Predictor", "total_co2e")
+col_r1.metric("Model Type", "Random Forest",
+              help="A machine learning algorithm that builds many decision trees and averages their predictions.")
+col_r2.metric("CV Accuracy", "94.2% ±3.3%",
+              help="The model correctly predicts order risk 94.2% of the time, tested using 5-fold cross-validation on simulation data.")
+col_r3.metric("Top Predictor", "Carbon Emissions",
+              help="The single most important signal for predicting whether an order will be late.")
 
-features_list = ['total_co2e','num_orders','total_quantity','SIM_ELAPSED_STEPS','avg_margin','overstock_co2e','SIM_STEP','avg_net_value']
+features_readable = [
+    'Total Carbon Emissions', 'Number of Orders', 'Total Quantity Shipped',
+    'Weeks Elapsed', 'Average Profit Margin', 'Overstock Carbon Waste',
+    'Week in Phase', 'Average Order Value'
+]
 importances_list = [0.1735,0.1469,0.1420,0.1132,0.1063,0.0923,0.0740,0.0721]
 
 fig_imp = px.bar(
     x=importances_list,
-    y=features_list,
+    y=features_readable,
     orientation='h',
-    title='CAPE Risk Model — Feature Importance (Trained on Simulation Data, Applied to LAX)',
-    labels={'x': 'Importance', 'y': 'Feature'},
+    title='What Signals Best Predict Order Risk? (Feature Importance)',
+    labels={'x': 'How Important (higher = more predictive)', 'y': ''},
     color=importances_list,
     color_continuous_scale='Blues'
 )
 fig_imp.update_layout(yaxis={'categoryorder': 'total ascending'})
 st.plotly_chart(fig_imp, use_container_width=True)
+st.caption("📌 **How to read this chart:** Each bar shows how much a signal contributes to predicting late orders. \"Total Carbon Emissions\" is the strongest predictor — when carbon is high, orders are likely to be late.")
 
 st.success("🔑 Key Finding: total_co2e is the #1 predictor of order lateness — carbon exposure and order risk are statistically linked. CV accuracy: 94.2% across 5 folds.")
 
 st.divider()
-st.subheader("🚢 Port of LA vs LAX Air Cargo — 2021 Validation")
+st.subheader("🚢 Port of LA vs LAX Air Cargo — 2021 Corroboration")
 
 port_la_2021 = pd.DataFrame({
     'month': ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
@@ -233,17 +241,17 @@ port_la_2021 = pd.DataFrame({
 
 fig7 = go.Figure()
 fig7.add_trace(go.Bar(x=port_la_2021['month'], y=port_la_2021['total_teus'],
-                      name='Port of LA TEUs', yaxis='y1', marker_color='steelblue', opacity=0.7))
+                      name='Port of LA Containers (TEUs)', yaxis='y1', marker_color='steelblue', opacity=0.7))
 fig7.add_trace(go.Scatter(x=port_la_2021['month'], y=port_la_2021['total_tons'],
                           name='LAX Air Cargo (tons)', yaxis='y2',
                           line=dict(color='red', width=3), marker=dict(size=8), mode='lines+markers'))
 fig7.update_layout(
     title='Port of LA Container Volume vs LAX Air Freight — 2021 Supply Chain Surge',
-    yaxis=dict(title='Port TEUs', side='left'),
+    yaxis=dict(title='Shipping Containers (TEUs)', side='left'),
     yaxis2=dict(title='LAX Air Cargo (tons)', side='right', overlaying='y'),
     legend=dict(x=0.01, y=0.99)
 )
 st.plotly_chart(fig7, use_container_width=True)
 st.caption("📌 **How to read this chart:** The blue bars show shipping containers handled by the Port of LA. The red line shows air cargo at LAX. When both spike at the same time (March 2021), it means the entire freight system was under stress — ground AND air. That's when carbon emissions are at their highest.")
-st.info("📍 **March 2021:** Port of LA handled 957,599 TEUs while LAX air cargo peaked at 254,057 tons. When ground shipping gets overwhelmed, companies switch to air — producing 47-50x more carbon per ton-mile. This is exactly the pattern CAPE is designed to predict and prevent.")
+st.info("📍 **March 2021:** Port of LA handled 957,599 shipping containers (TEUs — twenty-foot equivalent units) while LAX air cargo peaked at 254,057 tons. When ground shipping gets overwhelmed, companies switch to air — producing 47-50x more carbon per ton-mile. This is exactly the pattern CAPE is designed to predict and prevent.")
 st.caption("Port of LA data source: [Port of Los Angeles Container Statistics](https://www.portoflosangeles.org/business/statistics/container-statistics). LAX data source: LAWA Open Data Portal.")

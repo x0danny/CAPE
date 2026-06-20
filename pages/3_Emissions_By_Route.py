@@ -241,6 +241,11 @@ def main():
             "Data sources: LAWA Open Data Portal (tonnage), Freightos Air Index (pricing), "
             "ICAO Carbon Emissions Calculator + UK DEFRA/BEIS GHG Conversion Factors (emission factors)."
         )
+        st.warning(
+            "📌 **Data transparency:** Freight tonnage is from LAWA public records. Carrier names, product categories, "
+            "and delivery status are **representative values assigned for research demonstration** — LAWA does not publish "
+            "shipment-level detail. Carbon emissions are calculated, not measured. See the Data & Downloads page for full methodology."
+        )
         st.divider()
 
         total_co2e = carbon['Total_CO2e_kg'].sum()

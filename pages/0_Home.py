@@ -23,9 +23,16 @@ Using a machine learning model trained on supply chain simulation data, CAPE ach
 predicting which fulfillment periods will generate elevated carbon exposure.
 The key finding: **carbon emissions are the #1 predictor of order lateness** — carbon and operational risk are statistically linked.
 
-The platform is validated against **18 years of LAX air freight data** and **Port of LA container volume** from the 2021 supply chain surge,
-grounding the findings in the real-world logistics corridor most relevant to this research.
+The findings are corroborated by **18 years of LAX air freight data** and **Port of LA container volume** from the 2021 supply chain surge,
+grounding the simulation results in the real-world logistics corridor most relevant to this research.
 """)
+
+st.markdown(
+    "**Why does this matter?** Every time a package gets rushed by air instead of ground, "
+    "it produces roughly **49 times more carbon pollution**. During the 2021 shipping crisis, "
+    "LAX air freight surged 31% — millions of extra tons of CO₂ that could have been avoided "
+    "with earlier intervention. CAPE is designed to provide that early warning."
+)
 st.divider()
 
 st.markdown("#### Explore the Platform")
