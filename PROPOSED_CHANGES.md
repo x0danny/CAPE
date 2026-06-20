@@ -40,6 +40,20 @@ Label x-axis as "Round 1" through "Round 38" — everyone understands "rounds" i
 
 **Option:** Split into "LAX Freight Trends" (aggregate) and "Carbon by Carrier & Route" (per-shipment). Would make each page more focused.
 
+## 5. Potential Additional Data Sources
+
+Found during session — explore further in Claude Research:
+
+- **Airport Tracker (airporttracker.org/tracker/airports/lax/)** — CO₂ and air pollutant emissions from LAX flights (passenger, freight, private jets). Built by ODI Global, Transport & Environment, and ICCT. Could cross-check CAPE's emission estimates against an independent source.
+- **ISO 14083:2023** — Newest international standard for transport carbon accounting (referenced by carboncare.org). Could strengthen methodology citations alongside ICAO/DEFRA.
+- **Add to Claude Research prompt:** Include these as sources to investigate.
+
+## 6. Items Not Yet Addressed
+
+- `Fianancial Postings.xlsx` filename typo — the actual data file is also misspelled. Renaming would require coordinating with Danny to rename his copy too.
+- `LAX_Prices.xlsx` is downloadable on the Data page but not used by any analysis page. Either integrate it into a chart or remove from downloads.
+- Danny's `CAPE_Analysis` notebook is in the repo but not linked from any page. Consider adding a "View the analysis notebook" link on the Data & Downloads page.
+
 ---
 
 *Notes created 2026-06-19. Discuss with Danny before implementing any of these.*
