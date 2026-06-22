@@ -5,7 +5,7 @@ from pathlib import Path
 st.title("📁 Data & Downloads")
 st.markdown("**Download CAPE datasets or upload your own LAX data**")
 st.caption(
-    "CAPE analyzes LAX air freight data to predict carbon risk from supply chain mode-switching. "
+    "CAPE analyzes LAX air freight data to model and illustrate carbon risk from simulated supply chain mode-switching. "
     "Download the datasets used in the analysis, or upload updated LAX cargo data to extend the research."
 )
 st.divider()
