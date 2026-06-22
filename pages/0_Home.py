@@ -1,7 +1,7 @@
 import streamlit as st
 
 st.title("🌿 CAPE — Carbon-Aware Predictive Engine")
-st.markdown("**AI-Driven Analytics Platform for Carbon-Awareness of LAX Logistics**")
+st.markdown("**AI-Driven Analytics Platform for Carbon-Awareness of LAX (Los Angeles International Airport) Air Freight**")
 
 col_team, col_advisor = st.columns(2)
 with col_team:
@@ -10,7 +10,7 @@ with col_team:
 with col_advisor:
     st.markdown("##### Advisor")
     st.markdown("Dr. Ming Wang")
-st.caption("CSULA CIS | SAIES Research | NSF Grant Project")
+st.caption("CSULA (Cal State LA) · CIS (College of Information Systems) | SAIES Research | NSF (National Science Foundation) Grant Project")
 st.divider()
 
 st.markdown("#### What is CAPE?")
@@ -98,4 +98,4 @@ with col_c:
               help="Air freight produces approximately 49 times more CO₂ per ton-mile than ground transport")
 
 st.divider()
-st.caption("CAPE — AI-Driven Analytics Platform | SAIES Research | CSULA CIS | NSF Grant Project")
+st.caption("CAPE — AI-Driven Analytics Platform | SAIES Research | Cal State LA · CIS | NSF Grant Project")

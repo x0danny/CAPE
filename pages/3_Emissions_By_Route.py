@@ -60,7 +60,8 @@ def main():
     st.markdown("##### Which airlines, routes, and cargo types produce the most carbon at LAX?")
     st.caption(
         "This page breaks down carbon emissions by carrier, route, product type, and delivery status — "
-        "using 18 years of LAX air freight data and per-shipment analysis with ICAO/DEFRA emission factors."
+        "using 18 years of LAX air freight data and per-shipment analysis with ICAO/DEFRA emission factors. "
+        "ICAO = International Civil Aviation Organization; DEFRA = UK Department for Environment, Food & Rural Affairs."
     )
     st.divider()
 
@@ -238,7 +239,9 @@ def main():
         st.header("🔬 Per-Shipment Carbon Analysis (2020–2023)")
         st.caption(
             "This section uses per-shipment data with emissions calculated using ICAO/DEFRA methodology. "
-            "Data sources: LAWA Open Data Portal (tonnage), Freightos Air Index (pricing), "
+            "ICAO (International Civil Aviation Organization) and DEFRA (UK Dept for Environment, Food & Rural Affairs) "
+            "publish the emission factors used by airlines and governments worldwide. "
+            "Data sources: LAWA (Los Angeles World Airports) Open Data Portal (tonnage), Freightos Air Index (pricing), "
             "ICAO Carbon Emissions Calculator + UK DEFRA/BEIS GHG Conversion Factors (emission factors)."
         )
         st.warning(
@@ -393,7 +396,7 @@ def main():
     st.markdown("\n".join(f"- {t}" for t in takeaways))
 
     st.divider()
-    st.caption("Sales & Carbon Intelligence | AI-Driven Analytics Platform | SAIES Research | CSULA CIS | NSF Grant Project")
+    st.caption("Sales & Carbon Intelligence | AI-Driven Analytics Platform | SAIES Research | Cal State LA · CIS | NSF Grant Project")
 
 
 main()

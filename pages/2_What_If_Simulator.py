@@ -343,10 +343,10 @@ st.markdown("""
 | **4. CAPE Flags It** | Risk score crosses 0.6 | **This is where CAPE catches it** — there's still time to act |
 | **5. Air Freight Kicks In** | Critical orders get rushed by air | Carbon cost explodes — air produces 47-50x more CO2 than ground |
 | **6. LAX Gets the Load** | Air cargo volume at LAX spikes | Real-world impact — this is what we measured in 18 years of LAX data |
-| **7. Emissions Logged** | SAP records the carbon after the fact | Too late to prevent — CAPE already caught it at Step 4 |
+| **7. Emissions Logged** | SAP (enterprise software) records the carbon after the fact | Too late to prevent — CAPE already caught it at Step 4 |
 """)
 
 st.info("💡 **The key insight:** CAPE's job is to intervene at Step 4 — before the expensive, high-carbon Steps 5, 6, and 7 happen. That's the research contribution: predictive carbon intelligence, not after-the-fact reporting.")
 
 st.divider()
-st.caption("AI Supply Chain Control Tower | SAIES Research | CSULA CIS | NSF Grant Project")
+st.caption("AI Supply Chain Control Tower | SAIES Research | Cal State LA · CIS | NSF Grant Project")

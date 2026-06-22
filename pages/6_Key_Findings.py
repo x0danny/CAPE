@@ -182,7 +182,7 @@ with rec_col2:
     st.markdown("""
 **4. Expand CAPE to other airports**
 The mode-switching pattern CAPE detects at LAX likely exists at other major cargo hubs
-(JFK, ORD, MIA). Applying the same model to other airports would validate the
+(JFK — New York, ORD — Chicago, MIA — Miami). Applying the same model to other airports would validate the
 generalizability of the findings.
 
 **5. Integrate real-time freight pricing signals**
@@ -214,17 +214,10 @@ st.header("⚠️ What CAPE Can and Cannot Claim")
 st.caption("Honest disclosure of how the project works and where its limits are.")
 st.markdown("""
 **1. How the model was built**
-CAPE's risk prediction model was trained on a supply chain training exercise (SAP ERPsim),
-not on real company order data. The model learned patterns of how late orders lead to
-carbon waste — then we checked whether those same patterns appear in real LAX freight data.
-They do, but showing the same pattern is not the same as proving one causes the other.
+CAPE's risk prediction model was trained on ERPsim — a supply chain business simulation used in university courses (built on SAP, an enterprise software platform). It was not trained on real company order data. The model learned patterns of how late orders lead to carbon waste — then we checked whether those same patterns appear in real LAX freight data. They do, but showing the same pattern is not the same as proving one causes the other.
 
 **2. What the LAX analysis is based on**
-The freight tonnage and trends come from **real public data** published by Los Angeles World
-Airports (LAWA). However, the per-shipment details (which airline carried what, what product
-was shipped, whether it was late) are **example values created for this research** — LAWA
-only publishes monthly totals, not individual shipment records. The Data & Downloads page
-has full documentation of what is real vs. modeled.
+The freight tonnage and trends come from **real public data** published by LAWA (Los Angeles World Airports). However, the per-shipment details (which airline carried what, what product was shipped, whether it was late) are **example values created for this research** — LAWA only publishes monthly totals, not individual shipment records. The Data & Downloads page has full documentation of what is real vs. modeled.
 
 **3. How carbon emissions were calculated**
 We used internationally recognized methods (ICAO Carbon Emissions Calculator and UK
@@ -242,8 +235,8 @@ conditions.
 **5. Can other researchers reproduce this?**
 The LAX data is freely available from the City of LA Open Data Portal. The model training
 code is in the project repository. However, the ERPsim training data requires a
-SAP University Alliance license — contact your institution's SAP representative for access.
+SAP University Alliance license — contact your institution's SAP (enterprise software) representative for access.
 """)
 
 st.divider()
-st.caption("CAPE — Key Findings & Recommendations | AI-Driven Analytics Platform | SAIES Research | CSULA CIS | NSF Grant Project")
+st.caption("CAPE — Key Findings & Recommendations | AI-Driven Analytics Platform | SAIES Research | Cal State LA · CIS | NSF Grant Project")

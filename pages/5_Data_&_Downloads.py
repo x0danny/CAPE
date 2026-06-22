@@ -5,7 +5,7 @@ from pathlib import Path
 st.title("📁 Data & Downloads")
 st.markdown("**Download CAPE datasets or upload your own LAX data**")
 st.caption(
-    "CAPE analyzes LAX air freight data to model and illustrate carbon risk from simulated supply chain mode-switching. "
+    "CAPE analyzes LAX air freight data published by LAWA (Los Angeles World Airports) to model and illustrate carbon risk from simulated supply chain mode-switching. "
     "Download the datasets used in the analysis, or upload updated LAX cargo data to extend the research."
 )
 st.divider()
@@ -190,10 +190,10 @@ Emissions calculated using ICAO Carbon Emissions Calculator methodology + UK DEF
 Includes a LAWA_Annual_Validation sheet with real airport-wide emissions (2013–2022) from LAWA Sustainability Reports.
 
 **LAX Prices — `LAX_Prices.xlsx`**
-Freightos Air Index (FAX) published air cargo pricing benchmark. Licensed as Freightos Data.
+Freightos Air Index (FAX) — a published air cargo pricing benchmark from Freightos, a global freight marketplace. Licensed as Freightos Data.
 
 **Deployment note:** On Streamlit Cloud, the filesystem is reset on each deployment.
 Uploaded files persist for the current session only.
 """)
 
-st.caption("CAPE Data Upload | AI-Driven Analytics Platform | SAIES Research | CSULA CIS | NSF Grant Project")
+st.caption("CAPE Data Upload | AI-Driven Analytics Platform | SAIES Research | Cal State LA · CIS | NSF Grant Project")

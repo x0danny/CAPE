@@ -123,7 +123,7 @@ st.dataframe(high_risk, use_container_width=True)
 
 st.divider()
 st.subheader("✈️ LAX Air Freight Real-World Comparison — 18 Years of Data (2006–2023)")
-st.caption("This section connects CAPE's simulation findings to real-world LAX air freight data. The question: does LAX air cargo data support CAPE's predictions about carbon risk during supply chain stress?")
+st.caption("This section connects CAPE's simulation findings to real-world LAX air freight data published by LAWA (Los Angeles World Airports). The question: does LAX air cargo data support CAPE's predictions about carbon risk during supply chain stress?")
 
 lax = load_lax_aggregate()
 lax['ReportPeriod'] = lax['date']
@@ -196,15 +196,15 @@ st.markdown("""
 st.info("📍 **The CAPE connection:** CAPE's highest-risk time points (24–28, during Phase 3) show the same pattern as 2020–2021 at LAX — supply chain stress forces a switch to high-carbon air freight. CAPE catches this at the order level, before the freight mode decision is made.")
 
 st.divider()
-st.caption("CAPE — Carbon-Aware Predictive Engine | AI-Driven Analytics Platform | SAIES Research | CSULA CIS | NSF Grant Project")
+st.caption("CAPE — Carbon-Aware Predictive Engine | AI-Driven Analytics Platform | SAIES Research | Cal State LA · CIS | NSF Grant Project")
 st.divider()
 st.subheader("🤖 CAPE Order Risk Model")
 
 col_r1, col_r2, col_r3 = st.columns(3)
 col_r1.metric("Model Type", "Random Forest",
               help="A machine learning algorithm that builds many decision trees and averages their predictions.")
-col_r2.metric("CV Accuracy", "94.2% ±3.3%",
-              help="The model correctly predicts order risk 94.2% of the time, tested using 5-fold cross-validation on simulation data.")
+col_r2.metric("Model Accuracy (CV)", "94.2% ±3.3%",
+              help="CV = cross-validation. The model correctly predicts order risk 94.2% of the time, tested using 5-fold cross-validation (CV) on simulation data.")
 col_r3.metric("Top Predictor", "Carbon Emissions",
               help="The single most important signal for predicting whether an order will be late.")
 
@@ -253,5 +253,5 @@ fig7.update_layout(
 )
 st.plotly_chart(fig7, use_container_width=True)
 st.caption("📌 **How to read this chart:** The blue bars show shipping containers handled by the Port of LA. The red line shows air cargo at LAX. When both spike at the same time (March 2021), it means the entire freight system was under stress — ground AND air. That's when carbon emissions are at their highest.")
-st.info("📍 **March 2021:** Port of LA handled 957,599 shipping containers (TEUs — twenty-foot equivalent units) while LAX air cargo peaked at 254,057 tons. When ground shipping gets overwhelmed, companies switch to air — producing 47-50x more carbon per ton-mile. This is exactly the pattern CAPE is designed to predict and prevent.")
+st.info("📍 **March 2021:** Port of LA handled 957,599 shipping containers (TEUs — twenty-foot equivalent units, the standard measure for container volume) while LAX air cargo peaked at 254,057 tons. When ground shipping gets overwhelmed, companies switch to air — producing 47-50x more carbon per ton-mile. This is exactly the pattern CAPE is designed to predict and prevent.")
 st.caption("Port of LA data source: [Port of Los Angeles Container Statistics](https://www.portoflosangeles.org/business/statistics/container-statistics). LAX data source: LAWA Open Data Portal.")
