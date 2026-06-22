@@ -10,7 +10,7 @@ with col_team:
 with col_advisor:
     st.markdown("##### Advisor")
     st.markdown("Dr. Ming Wang")
-st.caption("CSULA (Cal State LA) · CIS (College of Information Systems) | SAIES Research | NSF (National Science Foundation) Grant Project")
+st.caption("Cal State LA · CIS | SAIES Research | NSF Grant Project")
 st.divider()
 
 st.markdown("#### What is CAPE?")
