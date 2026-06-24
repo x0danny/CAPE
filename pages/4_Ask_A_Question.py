@@ -485,6 +485,13 @@ with st.sidebar:
     if not TAVILY_API_KEY and (GROQ_API_KEY or GEMINI_API_KEY):
         st.info("Add `TAVILY_API_KEY` to Streamlit secrets to enable live web search.")
 
+if not st.session_state.cape_messages:
+    st.info(
+        "👋 **Welcome!** Type a question in the box below, or click one of the **suggested questions** "
+        "in the sidebar on the left to get started. You can ask about LAX air freight data, carbon emissions, "
+        "supply chain logistics, or anything related to the CAPE project."
+    )
+
 for msg in st.session_state.cape_messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
@@ -511,4 +518,4 @@ if prompt := st.chat_input("Ask anything about LAX air freight, carbon risk, or 
 if not st.session_state.cape_messages:
     st.info("Ask a question below, or click a suggested question in the sidebar.")
 
-st.caption("CAPE AI | AI-Driven Analytics Platform | SAIES Research | CSULA CIS | NSF Grant Project")
+st.caption("CAPE AI | AI-Driven Analytics Application | SAIES Research | CSULA CIS | NSF Grant Project")

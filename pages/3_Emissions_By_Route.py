@@ -173,7 +173,7 @@ def main():
         dir_df = freight.groupby(['year', 'Arrival_Departure'])['AirCargoTons'].sum().reset_index()
         fig_dir = px.bar(dir_df, x='year', y='AirCargoTons',
                         color='Arrival_Departure',
-                        color_discrete_map={'Arrival': CORAL, 'Departure': AMBER},
+                        color_discrete_map={'Arrival': BLUE, 'Departure': CORAL},
                         labels={'AirCargoTons': 'Freight (tons)', 'year': 'Year',
                                 'Arrival_Departure': 'Direction'},
                         barmode='group')

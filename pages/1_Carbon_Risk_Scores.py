@@ -10,10 +10,10 @@ EUR_TO_USD = 1.08
 st.title("🌿 Carbon Emissions Risk Scores")
 st.markdown("##### Which time periods had the highest carbon risk — and why?")
 st.caption(
-    "Our research started by analyzing the ERPsim data. This page scores each of 38 simulation periods "
-    "for carbon risk using data from a German supply chain training exercise (ERPsim). "
-    "The original data was recorded in EUR; we show USD equivalents using a conversion rate of "
-    f"€1 = ${EUR_TO_USD:.2f}."
+    "Our research started by analyzing ERPsim data — ERPsim is a business simulation platform developed in Germany "
+    "where teams manage a virtual supply chain (purchasing, inventory, sales, and logistics) in real time. "
+    "This page scores each of 38 simulation periods for carbon risk. "
+    f"The original data was recorded in EUR; we show USD equivalents at €1 = ${EUR_TO_USD:.2f}."
 )
 st.info(
     "📌 **How to read the timeline:** The x-axis shows 38 time points from a supply chain training exercise. "
@@ -94,6 +94,8 @@ with col_key2:
     st.warning("🟡 **0.3 – 0.6: Moderate Risk**\n\nEmissions are elevated. Monitor closely and consider adjustments.")
 with col_key3:
     st.error("🔴 **0.6 – 1.0: High Risk**\n\nEmissions are critically high. Immediate attention needed to reduce carbon exposure.")
+
+st.divider()
 
 # Charts row 2
 col_c, col_d = st.columns(2)
@@ -186,8 +188,8 @@ col_r1.metric("Model Type", "Random Forest",
               help="A machine learning algorithm that builds many decision trees and averages their predictions.")
 col_r2.metric("Model Accuracy (CV)", "94.2% ±3.3%",
               help="CV = cross-validation. The model correctly predicts order risk 94.2% of the time, tested using 5-fold cross-validation (CV) on simulation data.")
-col_r3.metric("Top Predictor", "Carbon Emissions",
-              help="The single most important signal for predicting whether an order will be late.")
+col_r3.metric("Top Predictor", "CO₂ Emissions",
+              help="Carbon emissions are the single most important signal for predicting whether an order will be late.")
 
 st.success(
     "🔑 **Key Finding:** Carbon emissions are the strongest predictor of order lateness — "

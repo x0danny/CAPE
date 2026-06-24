@@ -46,7 +46,7 @@ risk are not independent — they move together.
 with col2:
     st.metric("Orders Late", "57.9%", help="Percentage of orders in the training data that arrived late")
     st.metric("Model Accuracy", "94.2%", help="The model correctly predicts order risk 94.2% of the time (5-fold cross-validation)")
-    st.metric("Top Predictor", "Carbon Emissions", help="The signal most predictive of order lateness")
+    st.metric("Top Predictor", "CO₂ Emissions", help="Carbon emissions are the signal most predictive of order lateness")
 
 st.divider()
 

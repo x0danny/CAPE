@@ -58,7 +58,7 @@ total_orders = len(po)
 # ══════════════════════════════════════════════════════
 # SECTION 1: WHAT IS HAPPENING RIGHT NOW
 # ══════════════════════════════════════════════════════
-st.header("📍 What Is Happening Right Now")
+st.subheader("📍 What Is Happening Right Now")
 st.caption("A quick snapshot of order health and carbon exposure. Think of this as a check engine light for your supply chain.")
 st.divider()
 
@@ -88,7 +88,7 @@ st.divider()
 # ══════════════════════════════════════════════════════
 # SECTION 2: WHAT-IF SCENARIO SIMULATOR
 # ══════════════════════════════════════════════════════
-st.header("🎛️ What-If Scenario Simulator")
+st.subheader("🎛️ What-If Scenario Simulator")
 st.caption("Drag the sliders to see how changes to late orders, reorder quantities, and freight choices would affect carbon risk. This helps you compare different strategies before committing.")
 st.divider()
 
@@ -209,7 +209,7 @@ st.divider()
 # ══════════════════════════════════════════════════════
 # SECTION 3: WHY IS IT HAPPENING
 # ══════════════════════════════════════════════════════
-st.header("🔍 Why Is It Happening")
+st.subheader("🔍 Why Is It Happening")
 st.caption("These charts show the root causes behind carbon risk. Each chart includes a plain English explanation below it.")
 st.divider()
 
@@ -267,7 +267,7 @@ st.divider()
 # ══════════════════════════════════════════════════════
 # SECTION 4: WHAT TO DO ABOUT IT
 # ══════════════════════════════════════════════════════
-st.header("🚨 What To Do About It")
+st.subheader("🚨 What To Do About It")
 st.caption("Plain English recommendations for each high-risk period. No jargon — just what happened, why it matters, and what should have been done differently.")
 st.divider()
 
@@ -333,7 +333,7 @@ st.divider()
 # ══════════════════════════════════════════════════════
 # SECTION 5: THE CAPE CONNECTION
 # ══════════════════════════════════════════════════════
-st.header("🔗 How CAPE Catches Risk Early")
+st.subheader("🔗 How CAPE Catches Risk Early")
 st.caption("CAPE intervenes at Step 4 — before costly air freight escalation and emissions logging happen. Here's the full chain of events.")
 st.divider()
 

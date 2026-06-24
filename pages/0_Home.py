@@ -6,7 +6,7 @@ st.markdown("**AI-Driven Analytics Application for LAX**")
 col_team, col_advisor = st.columns(2)
 with col_team:
     st.markdown("##### Team")
-    st.markdown("**Brian Ta**, Co-Lead & Software Developer · **Daniel Ramirez**, Co-Lead & Financial Analyst")
+    st.markdown("**Brian Ta**, Co-Lead & Software Developer\n\n**Daniel Ramirez**, Co-Lead & Financial Analyst")
 with col_advisor:
     st.markdown("##### Advisor")
     st.markdown("Dr. Ming Wang")
@@ -49,9 +49,9 @@ col1, col2, col3 = st.columns(3)
 with col1:
     st.page_link("pages/1_Carbon_Risk_Scores.py", label="Which periods were high risk?", icon="📈", use_container_width=True)
     st.success(
-        "**In ERPsim**\n\n"
+        "**Training in ERPsim**\n\n"
         "See which time periods had the highest carbon risk and why they were flagged, "
-        "using data from the ERPsim supply chain training exercise."
+        "using data from a supply chain training simulation."
     )
 with col2:
     st.page_link("pages/7_LAX_Case_Study.py", label="How does it compare to real LAX data?", icon="✈️", use_container_width=True)
