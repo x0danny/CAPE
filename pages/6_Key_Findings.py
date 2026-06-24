@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from data_loader import load_lax_aggregate, load_lax_shipments
 
-st.title("🔑 Key Findings & Recommendations")
+st.title("🔑 Conclusions & Recommendations")
 st.markdown("##### What did CAPE find, why does it matter, and what should be done?")
 st.caption("This page summarizes the project's core findings and connects simulation results to real LAX air freight data.")
 st.divider()

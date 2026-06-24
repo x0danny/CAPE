@@ -3,15 +3,22 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from sklearn.preprocessing import MinMaxScaler
-from data_loader import load_erpsim, load_lax_aggregate, build_period_map, add_period_labels, ROUND_NAMES
+from data_loader import load_erpsim, build_period_map, add_period_labels, ROUND_NAMES
 
-st.title("🌿 Carbon Risk Scores")
+EUR_TO_USD = 1.08
+
+st.title("🌿 Carbon Emissions Risk Scores")
 st.markdown("##### Which time periods had the highest carbon risk — and why?")
-st.caption("This page scores each of 38 simulation periods for carbon risk and connects the findings to 18 years of real LAX air freight data (2006–2023).")
+st.caption(
+    "Our research started by analyzing the ERPsim data. This page scores each of 38 simulation periods "
+    "for carbon risk using data from a German supply chain training exercise (ERPsim). "
+    "The original data was recorded in EUR; we show USD equivalents using a conversion rate of "
+    f"€1 = ${EUR_TO_USD:.2f}."
+)
 st.info(
     "📌 **How to read the timeline:** The x-axis shows 38 time points from a supply chain training exercise. "
     "They are grouped into 4 phases: Phase 1 (Early) → Phase 2 (Growth) → Phase 3 (Peak Risk) → Phase 4 (Late). "
-    "CAPE uses these to learn what happens to carbon costs as conditions change — then checks the pattern against real LAX data below."
+    "CAPE uses these to learn what happens to carbon emissions as conditions change — then checks the pattern against real LAX data on the LAX Case Study tab."
 )
 st.divider()
 
@@ -25,7 +32,8 @@ cape_summary = cape_join.groupby(['SIM_ROUND', 'SIM_STEP']).agg(
     total_co2e=('TOTAL_CO2E_EMISSIONS', 'sum'),
     num_orders=('SALES_ORDER_NUMBER', 'nunique')
 ).reset_index()
-cape_summary['co2e_per_dollar'] = cape_summary['total_co2e'] / cape_summary['total_revenue']
+cape_summary['co2e_per_eur'] = cape_summary['total_co2e'] / cape_summary['total_revenue']
+cape_summary['co2e_per_dollar'] = cape_summary['total_co2e'] / (cape_summary['total_revenue'] * EUR_TO_USD)
 cape_summary = add_period_labels(cape_summary, _period_map)
 
 overstock = carbon[carbon['TYPE'] == 'Overstock'].groupby(['SIM_ROUND', 'SIM_STEP']).agg(
@@ -56,29 +64,36 @@ col3.metric("High Risk Periods", f"{high_risk_count} of {len(cape_summary)}",
 
 col4, col5 = st.columns(2)
 col4.metric("Worst Period", worst_period,
-            help="The simulation period with the highest CAPE risk score — carbon costs were at their peak here.")
+            help="The simulation period with the highest carbon emissions risk score — carbon emissions were at their peak here.")
 col5.metric("Overstock Share of Direct Emissions", f"{overstock_pct:.1f}%",
             help="Scope 1 = direct emissions from operations. This shows how much came from idle inventory vs. shipping.")
 
 st.divider()
 
-# Charts row 1
-col_a, col_b = st.columns(2)
+st.markdown("""
+Understanding carbon risk starts with measuring it. The charts below show how carbon emissions
+changed across 38 simulation periods in the ERPsim training exercise. Each period represents a
+different set of supply chain conditions — from calm early periods to high-stress peak periods.
+By tracking how carbon intensity and risk scores shift over time, CAPE identifies the conditions
+that lead to the highest emissions.
+""")
 
-with col_a:
-    fig1 = px.line(cape_summary_sorted, x='period', y='co2e_per_dollar',
-                   title='Carbon Intensity Over Time (CO2e per $ Revenue)',
-                   markers=True, color_discrete_sequence=['#2ca02c'])
-    fig1.update_layout(xaxis_tickangle=45)
-    st.plotly_chart(fig1, use_container_width=True)
+# Risk Score chart (full width)
+st.markdown("**Figure 1: Carbon Emissions Risk Score by Period**")
+fig1 = px.bar(cape_summary_sorted, x='period', y='cape_risk_score',
+              color='cape_risk_score', color_continuous_scale='RdYlGn_r')
+fig1.add_hline(y=0.6, line_dash='dash', line_color='red', annotation_text='High Risk Threshold')
+fig1.update_layout(xaxis_tickangle=45)
+st.plotly_chart(fig1, use_container_width=True)
+st.caption(f"Periods above the red dashed line (0.6) are high-risk. **{high_risk_count} of {len(cape_summary)}** periods exceeded this threshold.")
 
-with col_b:
-    fig2 = px.bar(cape_summary_sorted, x='period', y='cape_risk_score',
-                  color='cape_risk_score', color_continuous_scale='RdYlGn_r',
-                  title='CAPE Risk Score by Period')
-    fig2.add_hline(y=0.6, line_dash='dash', line_color='red', annotation_text='High Risk Threshold')
-    fig2.update_layout(xaxis_tickangle=45)
-    st.plotly_chart(fig2, use_container_width=True)
+col_key1, col_key2, col_key3 = st.columns(3)
+with col_key1:
+    st.success("🟢 **0.0 – 0.3: Low Risk**\n\nEmissions are under control. No immediate action needed.")
+with col_key2:
+    st.warning("🟡 **0.3 – 0.6: Moderate Risk**\n\nEmissions are elevated. Monitor closely and consider adjustments.")
+with col_key3:
+    st.error("🔴 **0.6 – 1.0: High Risk**\n\nEmissions are critically high. Immediate attention needed to reduce carbon exposure.")
 
 # Charts row 2
 col_c, col_d = st.columns(2)
@@ -86,119 +101,85 @@ col_c, col_d = st.columns(2)
 with col_c:
     scope_totals = carbon.groupby('SCOPE')['TOTAL_CO2E_EMISSIONS'].sum().reset_index()
     scope_totals['SCOPE'] = 'Scope ' + scope_totals['SCOPE'].astype(str)
+    st.markdown("**Figure 2: CO₂e by Emission Scope**")
     fig3 = px.pie(scope_totals, values='TOTAL_CO2E_EMISSIONS', names='SCOPE',
-                  title='CO2e by Emission Scope',
-                  color_discrete_sequence=['#1f77b4', '#ff7f0e', '#2ca02c'])
+                  color_discrete_sequence=['#1f77b4', '#9467bd', '#2ca02c'])
     st.plotly_chart(fig3, use_container_width=True)
+    st.caption(
+        "**Scope 1** — Direct emissions from airplanes and operations the company controls "
+        "(goods movement, deliveries, internal transfers, overstock storage).\n\n"
+        "**Scope 2** — Indirect emissions from purchased energy, such as electricity for facilities "
+        "(e.g., passenger electric charging, Wi-Fi, displays at LAX — even solar energy has production costs).\n\n"
+        "**Scope 3** — Upstream and supply chain emissions the company doesn't directly control "
+        "(ground maintenance, truck shipping after the airplane lands, CO₂ embedded in purchased products)."
+    )
 
 with col_d:
     type_totals = carbon.groupby('TYPE')['TOTAL_CO2E_EMISSIONS'].sum().reset_index()
+    type_color_map = {'Goods Movement': '#E24B4A', 'Overstock': '#9467bd', 'Purchased Energy': '#2ca02c', 'Goods Receipt': '#1f77b4'}
+    st.markdown("**Figure 3: CO₂e by Emission Type**")
     fig4 = px.bar(type_totals, x='TYPE', y='TOTAL_CO2E_EMISSIONS',
-                  title='CO2e by Emission Type',
-                  color='TOTAL_CO2E_EMISSIONS', color_continuous_scale='Reds',
+                  color='TYPE', color_discrete_map=type_color_map,
                   labels={'TOTAL_CO2E_EMISSIONS': 'Total CO2e (kg)'})
+    fig4.update_layout(showlegend=False)
     st.plotly_chart(fig4, use_container_width=True)
+    top_type = type_totals.loc[type_totals['TOTAL_CO2E_EMISSIONS'].idxmax(), 'TYPE']
+    st.caption(f"**{top_type}** is the largest source of carbon emissions by type.")
 
-# Revenue vs Carbon
-fig5 = go.Figure()
-fig5.add_trace(go.Bar(x=cape_summary_sorted['period'], y=cape_summary_sorted['total_revenue'],
-                      name='Revenue ($)', yaxis='y1', marker_color='steelblue', opacity=0.7))
-fig5.add_trace(go.Scatter(x=cape_summary_sorted['period'], y=cape_summary_sorted['total_co2e'],
-                          name='Total CO2e (kg)', yaxis='y2',
-                          line=dict(color='red', width=2), marker=dict(size=6), mode='lines+markers'))
-fig5.update_layout(title='Revenue vs Carbon Emissions Over Time',
-                   xaxis=dict(tickangle=45),
-                   yaxis=dict(title='Revenue ($)', side='left'),
-                   yaxis2=dict(title='CO2e (kg)', side='right', overlaying='y'),
-                   legend=dict(x=0.01, y=0.99))
+# Revenue vs Carbon — Scatter plot
+import numpy as np
+from scipy import stats
+
+cape_summary_sorted['total_revenue_usd'] = cape_summary_sorted['total_revenue'] * EUR_TO_USD
+cape_summary_sorted['phase'] = cape_summary_sorted['SIM_ROUND'].map(ROUND_NAMES)
+
+slope, intercept, r_value, p_value, std_err = stats.linregress(
+    cape_summary_sorted['total_revenue_usd'], cape_summary_sorted['total_co2e']
+)
+
+st.markdown(f"**Figure 4: Revenue vs Carbon Emissions (r = {r_value:.3f}, p = {p_value:.4f})**")
+fig5 = px.scatter(
+    cape_summary_sorted,
+    x='total_revenue_usd',
+    y='total_co2e',
+    color='phase',
+    hover_data={'period': True, 'total_revenue_usd': ':.0f', 'total_co2e': ':.0f', 'phase': True},
+    labels={'total_revenue_usd': 'Revenue (USD)', 'total_co2e': 'Total CO₂e (kg)', 'phase': 'Phase'},
+    color_discrete_sequence=['#2ca02c', '#1f77b4', '#E24B4A', '#9467bd'],
+)
+x_range = np.linspace(cape_summary_sorted['total_revenue_usd'].min(), cape_summary_sorted['total_revenue_usd'].max(), 100)
+fig5.add_trace(go.Scatter(
+    x=x_range, y=slope * x_range + intercept,
+    mode='lines', name='Trend',
+    line=dict(color='gray', dash='dash', width=2), showlegend=False
+))
+fig5.update_traces(marker=dict(size=10), selector=dict(mode='markers'))
+fig5.update_layout(legend=dict(x=0.01, y=0.99))
 st.plotly_chart(fig5, use_container_width=True)
+st.caption(
+    f"Each dot is one simulation period. Dots trending upward mean higher-revenue periods also had higher "
+    f"carbon emissions (r = {r_value:.3f}, p = {p_value:.4f}). Both variables are driven by production volume, "
+    f"so this correlation reflects shared supply chain conditions rather than a direct causal link. "
+    f"Revenue converted from EUR at €1 = ${EUR_TO_USD:.2f}."
+)
 
 # High risk table
 st.subheader("🚨 High Risk Periods")
 high_risk = cape_summary[cape_summary['cape_risk_score'] >= 0.6][
     ['period', 'total_revenue', 'total_co2e', 'overstock_co2e', 'co2e_per_dollar', 'cape_risk_score']
 ].sort_values('cape_risk_score', ascending=False)
-high_risk.columns = ['Period', 'Revenue ($)', 'Total CO2e', 'Overstock CO2e', 'CO2e per $', 'Risk Score']
-st.dataframe(high_risk, use_container_width=True)
+high_risk.columns = ['Period', 'Revenue (USD)', 'Total CO2e', 'Overstock CO2e', 'CO2e per $', 'Risk Score']
+high_risk['Revenue (USD)'] = high_risk['Revenue (USD)'].apply(lambda x: f"${x * EUR_TO_USD:,.0f}")
+high_risk['Total CO2e'] = high_risk['Total CO2e'].apply(lambda x: f"{x:,.0f}")
+high_risk['Overstock CO2e'] = high_risk['Overstock CO2e'].apply(lambda x: f"{x:,.0f}")
+high_risk['CO2e per $'] = high_risk['CO2e per $'].apply(lambda x: f"{x:.4f}")
+high_risk['Risk Score'] = high_risk['Risk Score'].apply(lambda x: f"{x:.3f}")
+st.dataframe(high_risk.reset_index(drop=True), use_container_width=True, hide_index=True)
+st.caption(f"Revenue and carbon emissions are not strongly correlated (r = {r_value:.3f}), "
+           "suggesting that high revenue periods do not necessarily produce the highest carbon emissions.")
 
 st.divider()
-st.subheader("✈️ LAX Air Freight Real-World Comparison — 18 Years of Data (2006–2023)")
-st.caption("This section connects CAPE's simulation findings to real-world LAX air freight data published by LAWA (Los Angeles World Airports). The question: does LAX air cargo data support CAPE's predictions about carbon risk during supply chain stress?")
-
-lax = load_lax_aggregate()
-lax['ReportPeriod'] = lax['date']
-lax_freight = lax[lax['CargoType'] == 'Freight']
-lax_monthly = lax_freight.groupby('ReportPeriod').agg(
-    total_tons=('AirCargoTons', 'sum')
-).reset_index().sort_values('ReportPeriod')
-
-lax_yearly = lax_freight.groupby(lax_freight['ReportPeriod'].dt.year).agg(
-    total_tons=('AirCargoTons', 'sum')
-).reset_index()
-lax_yearly.columns = ['Year', 'total_tons']
-
-fig6 = px.line(lax_monthly,
-               x='ReportPeriod',
-               y='total_tons',
-               title='LAX Monthly Air Freight Volume (2006–2023)',
-               labels={'total_tons': 'Total Freight (Tons)', 'ReportPeriod': 'Month'},
-               color_discrete_sequence=['#e377c2'])
-fig6.add_vline(x=pd.Timestamp('2008-09-01').timestamp()*1000, line_dash='dash', line_color='red', annotation_text='2008 Financial Crisis')
-fig6.add_vline(x=pd.Timestamp('2020-03-01').timestamp()*1000, line_dash='dash', line_color='orange', annotation_text='COVID-19 Pandemic')
-fig6.add_vline(x=pd.Timestamp('2021-03-01').timestamp()*1000, line_dash='dash', line_color='green', annotation_text='Supply Chain Surge')
-fig6.update_layout(height=400)
-st.plotly_chart(fig6, use_container_width=True)
-st.caption("📌 **How to read this chart:** Each point is one month of air freight volume at LAX. Sharp spikes indicate supply chain stress events where companies switched from ground to air shipping — exactly the kind of mode-switching that multiplies carbon emissions by 47-50x.")
-
-st.divider()
-st.markdown("#### Key Findings from 18 Years of LAX Data")
-
-col_e, col_f, col_g = st.columns(3)
-with col_e:
-    st.metric("Peak Month", "Mar 2021")
-    st.metric("Peak Volume", "254,057 tons")
-    st.caption("The highest single month in 18 years — driven by the global supply chain crisis.")
-with col_f:
-    first_full = lax_yearly.iloc[0]
-    last_full = lax_yearly[lax_yearly['Year'] == lax_yearly['Year'].max() - 1].iloc[0] if len(lax_yearly) > 1 else first_full
-    vol_change = (last_full['total_tons'] / first_full['total_tons'] - 1) * 100
-    st.metric(f"{int(first_full['Year'])} vs {int(last_full['Year'])}", f"{vol_change:+.1f}%")
-    st.metric(f"{int(first_full['Year'])} Volume", f"{first_full['total_tons']:,.0f} tons")
-    st.caption(f"Comparing full calendar years. The spikes during crises are what matter for carbon, not long-term averages.")
-with col_g:
-    worst_p = cape_summary.loc[cape_summary['cape_risk_score'].idxmax(), 'period']
-    worst_intensity = cape_summary.loc[cape_summary['cape_risk_score'].idxmax(), 'co2e_per_dollar']
-    st.metric("CAPE Highest Risk", worst_p)
-    st.metric("Peak Carbon Intensity", f"{worst_intensity:.3f} kg CO₂e/$")
-    st.caption("CAPE's riskiest simulation period mirrors the real-world pattern: supply chain stress → air freight surge → carbon spike.")
-
-st.divider()
-st.markdown("#### Does Air Freight Reduce Carbon Over Time?")
-st.caption("The short answer: **no**. While overall freight volume has slightly declined, the carbon problem is about **spikes during crises**, not long-term averages.")
-
-fig_yearly = px.bar(lax_yearly, x='Year', y='total_tons',
-                    title='LAX Annual Air Freight Volume (2006–2023)',
-                    labels={'total_tons': 'Total Freight (Tons)', 'Year': 'Year'},
-                    color='total_tons', color_continuous_scale='Blues')
-fig_yearly.update_layout(height=350)
-st.plotly_chart(fig_yearly, use_container_width=True)
-
-st.markdown("""
-**What the data shows across 18 years:**
-- **2006–2009:** Freight dropped 21% during the financial crisis — companies shipped less of everything
-- **2010–2019:** Gradual recovery with steady growth, reaching pre-crisis levels by 2015
-- **2020–2021:** COVID disrupted ground supply chains, causing a massive surge in air freight (+31% from 2019 to 2021)
-- **2022–2023:** Sharp correction as supply chains normalized, dropping 34% from the 2021 peak
-
-**Why this matters for carbon:** Air freight produces 47-50x more carbon per ton-mile than ground transport. Even a temporary spike in air cargo — like the 2021 surge — generates outsized carbon emissions. CAPE's value is detecting the conditions that trigger these mode-switching events **before** they happen.
-""")
-
-st.info("📍 **The CAPE connection:** CAPE's highest-risk time points (24–28, during Phase 3) show the same pattern as 2020–2021 at LAX — supply chain stress forces a switch to high-carbon air freight. CAPE catches this at the order level, before the freight mode decision is made.")
-
-st.divider()
-st.caption("CAPE — Carbon-Aware Predictive Engine | AI-Driven Analytics Platform | SAIES Research | Cal State LA · CIS | NSF Grant Project")
-st.divider()
-st.subheader("🤖 CAPE Order Risk Model")
+st.subheader("🤖 CAPE Order Risk Model for LAX Data")
 
 col_r1, col_r2, col_r3 = st.columns(3)
 col_r1.metric("Model Type", "Random Forest",
@@ -208,50 +189,13 @@ col_r2.metric("Model Accuracy (CV)", "94.2% ±3.3%",
 col_r3.metric("Top Predictor", "Carbon Emissions",
               help="The single most important signal for predicting whether an order will be late.")
 
-features_readable = [
-    'Total Carbon Emissions', 'Number of Orders', 'Total Quantity Shipped',
-    'Weeks Elapsed', 'Average Profit Margin', 'Overstock Carbon Waste',
-    'Week in Phase', 'Average Order Value'
-]
-importances_list = [0.1735,0.1469,0.1420,0.1132,0.1063,0.0923,0.0740,0.0721]
-
-fig_imp = px.bar(
-    x=importances_list,
-    y=features_readable,
-    orientation='h',
-    title='What Signals Best Predict Order Risk? (Feature Importance)',
-    labels={'x': 'How Important (higher = more predictive)', 'y': ''},
-    color=importances_list,
-    color_continuous_scale='Blues'
+st.success(
+    "🔑 **Key Finding:** Carbon emissions are the strongest predictor of order lateness — "
+    "when supply chain conditions produce high carbon, they also produce late deliveries. "
+    "The two risks move together, which means monitoring carbon can serve as an early warning "
+    "for supply chain problems. Model accuracy: 94.2% across 5 folds."
 )
-fig_imp.update_layout(yaxis={'categoryorder': 'total ascending'})
-st.plotly_chart(fig_imp, use_container_width=True)
-st.caption("📌 **How to read this chart:** Each bar shows how much a signal contributes to predicting late orders. \"Total Carbon Emissions\" is the strongest predictor — when carbon is high, orders are likely to be late.")
-
-st.success("🔑 Key Finding: total_co2e is the #1 predictor of order lateness — carbon exposure and order risk are statistically linked. CV accuracy: 94.2% across 5 folds.")
 
 st.divider()
-st.subheader("🚢 Port of LA vs LAX Air Cargo — 2021 Real-World Comparison")
-
-port_la_2021 = pd.DataFrame({
-    'month': ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
-    'total_teus': [835516,799315,957599,946966,1012048,876430,890800,954377,903865,902644,811460,786589],
-    'total_tons': [212993,200482,254057,241159,249734,238398,240152,236615,234046,249535,245303,249442]
-})
-
-fig7 = go.Figure()
-fig7.add_trace(go.Bar(x=port_la_2021['month'], y=port_la_2021['total_teus'],
-                      name='Port of LA Containers (TEUs)', yaxis='y1', marker_color='steelblue', opacity=0.7))
-fig7.add_trace(go.Scatter(x=port_la_2021['month'], y=port_la_2021['total_tons'],
-                          name='LAX Air Cargo (tons)', yaxis='y2',
-                          line=dict(color='red', width=3), marker=dict(size=8), mode='lines+markers'))
-fig7.update_layout(
-    title='Port of LA Container Volume vs LAX Air Freight — 2021 Supply Chain Surge',
-    yaxis=dict(title='Shipping Containers (TEUs)', side='left'),
-    yaxis2=dict(title='LAX Air Cargo (tons)', side='right', overlaying='y'),
-    legend=dict(x=0.01, y=0.99)
-)
-st.plotly_chart(fig7, use_container_width=True)
-st.caption("📌 **How to read this chart:** The blue bars show shipping containers handled by the Port of LA. The red line shows air cargo at LAX. When both spike at the same time (March 2021), it means the entire freight system was under stress — ground AND air. That's when carbon emissions are at their highest.")
-st.info("📍 **March 2021:** Port of LA handled 957,599 shipping containers (TEUs — twenty-foot equivalent units, the standard measure for container volume) while LAX air cargo peaked at 254,057 tons. When ground shipping gets overwhelmed, companies switch to air — producing 47-50x more carbon per ton-mile. This is exactly the pattern CAPE is designed to predict and prevent.")
-st.caption("Port of LA data source: [Port of Los Angeles Container Statistics](https://www.portoflosangeles.org/business/statistics/container-statistics). LAX data source: LAWA Open Data Portal.")
+st.info("📍 **Why CAPE matters to LAX:** CAPE's highest-risk time points (24–28, during Phase 3) show the same pattern as 2020–2021 at LAX — supply chain stress forces a switch to high-carbon air freight. CAPE catches this at the order level, before the freight mode decision is made.")
+st.caption("CAPE — Carbon-Aware Predictive Engine | AI-Driven Analytics Platform | SAIES Research | Cal State LA · CIS | NSF Grant Project")

@@ -3,5 +3,6 @@ openpyxl
 plotly
 streamlit
 scikit-learn
+scipy
 pyarrow
 tavily-python

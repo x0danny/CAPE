@@ -435,7 +435,7 @@ def get_answer(question, ctx):
 
 
 # ── Page ──────────────────────────────────────────────────────────────────────
-st.title("💬 Ask a Question")
+st.title("💬 Chatbot on CAPE")
 st.markdown("**Ask anything about LAX air freight, carbon risk, supply chain logistics, or CAPE research.**")
 st.caption("Answers are grounded in 18 years of LAX air freight data (2006–2023). Questions about current events use live web search with citations.")
 st.divider()
