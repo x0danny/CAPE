@@ -515,7 +515,4 @@ if prompt := st.chat_input("Ask anything about LAX air freight, carbon risk, or 
                     st.caption(e)
     st.session_state.cape_messages.append({"role": "assistant", "content": answer})
 
-if not st.session_state.cape_messages:
-    st.info("Ask a question below, or click a suggested question in the sidebar.")
-
 st.caption("CAPE AI | AI-Driven Analytics Application | SAIES Research | CSULA CIS | NSF Grant Project")
