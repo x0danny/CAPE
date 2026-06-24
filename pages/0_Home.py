@@ -113,7 +113,7 @@ with col_b:
               help="Random Forest classifier, 5-fold cross-validation")
 with col_c:
     st.metric("Air vs Ground Carbon", "~49x",
-              help="Air freight produces approximately 49 times more CO₂ per ton-mile than ground transport")
+              help="Air freight produces approximately 49 times more CO₂ per ton-mile than ground transport (based on ICAO/DEFRA emission factors). See the Emissions by Route page for the full calculation.")
 
 st.divider()
 st.caption("CAPE — AI-Driven Analytics Application | SAIES Research | Cal State LA · CIS | NSF Grant Project")
