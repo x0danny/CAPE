@@ -49,7 +49,7 @@ col1, col2, col3 = st.columns(3)
 with col1:
     st.page_link("pages/1_Carbon_Risk_Scores.py", label="Which periods were high risk?", icon="📈", use_container_width=True)
     st.success(
-        "**Training in ERPsim**\n\n"
+        "**AI Training for ERPsim**\n\n"
         "See which time periods had the highest carbon risk and why they were flagged, "
         "using data from a supply chain training simulation."
     )
@@ -63,7 +63,7 @@ with col2:
 with col3:
     st.page_link("pages/3_Emissions_By_Route.py", label="Which routes emit the most?", icon="📊", use_container_width=True)
     st.info(
-        "**Emissions by Route**\n\n"
+        "**LAX Emissions by Route**\n\n"
         "Which airlines, routes, and cargo types produce the most carbon at LAX? "
         "Per-shipment analysis with real emission factors."
     )
@@ -73,7 +73,7 @@ col4, col5, col6 = st.columns(3)
 with col4:
     st.page_link("pages/2_What_If_Simulator.py", label="What if we changed our approach?", icon="⚡", use_container_width=True)
     st.info(
-        "**What-If Simulator**\n\n"
+        "**LAX What-If Simulator**\n\n"
         "Drag sliders to simulate supply chain changes — fewer late orders, smaller orders, "
         "more ground shipping — and see how carbon risk would change."
     )
