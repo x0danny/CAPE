@@ -27,21 +27,24 @@ except Exception:
 # ══════════════════════════════════════════════════════════════════════════════
 # FINDING 1
 # ══════════════════════════════════════════════════════════════════════════════
-st.header("1. Late orders are the #1 driver of avoidable carbon emissions")
+st.header("1. Overstock is the #1 cause of avoidable carbon emissions")
 
 col1, col2 = st.columns([2, 1])
 with col1:
     st.markdown("""
-In CAPE's training data, **57.9% of all orders arrived late** — and late orders are
-the single biggest cause of carbon waste in the supply chain.
+Items that sit in overstock — especially those requiring cold storage or climate control —
+are the single biggest cause of avoidable carbon emissions in the supply chain.
 
-Here's why: when an order arrives late, inventory piles up in warehouses. That idle inventory
-generates a carbon penalty from storage, cooling, and handling. **Overstock
-from late orders accounted for over a third of all direct emissions**.
+**Why overstock generates so much carbon:** Warehouses must maintain temperature control
+(refrigeration, heating, ventilation) regardless of whether goods are moving. When inventory
+piles up because orders arrive late, all that thermal energy is spent on goods sitting idle.
+**Overstock accounted for over a third of all direct (Scope 1) emissions** in the simulation.
 
-The machine learning model confirmed this statistically: **total CO₂ emissions are the #1
-predictor of whether an order will be late**, with 94.2% accuracy. Carbon risk and operational
-risk are not independent — they move together.
+**The solution:** Better thermal insulation and heating efficiency in warehouse operations
+would directly reduce the carbon penalty from overstock. However, the most effective
+intervention is preventing overstock from building up in the first place — which means
+catching late orders early. CAPE's machine learning model confirmed that **carbon emissions
+are the strongest predictor of order lateness**, with 94.2% accuracy.
 """)
 with col2:
     st.metric("Orders Late", "57.9%", help="Percentage of orders in the training data that arrived late")
@@ -53,7 +56,7 @@ st.divider()
 # ══════════════════════════════════════════════════════════════════════════════
 # FINDING 2
 # ══════════════════════════════════════════════════════════════════════════════
-st.header("2. The 2021 COVID supply chain crisis proves the pattern at LAX")
+st.header("2. 2021 COVID supply chain crisis created the highest estimated carbon emissions in 17 years at LAX")
 
 col1, col2 = st.columns([2, 1])
 with col1:
@@ -88,7 +91,7 @@ st.divider()
 # ══════════════════════════════════════════════════════════════════════════════
 # FINDING 3
 # ══════════════════════════════════════════════════════════════════════════════
-st.header("3. International routes from LAX are the biggest carbon exposure")
+st.header("3. International routes from LAX lead to the most carbon emissions compared to other routes")
 
 col1, col2 = st.columns([2, 1])
 with col1:
@@ -128,7 +131,7 @@ st.divider()
 # ══════════════════════════════════════════════════════════════════════════════
 # FINDING 4
 # ══════════════════════════════════════════════════════════════════════════════
-st.header("4. CAPE catches carbon risk before it happens — traditional tools cannot")
+st.header("4. CAPE forecasts carbon risk before it happens — SAP Green Ledger cannot")
 
 st.markdown("""
 The core research contribution of CAPE is **timing**. Existing tools like SAP Green Ledger
@@ -239,4 +242,4 @@ SAP University Alliance license — contact your institution's SAP (enterprise s
 """)
 
 st.divider()
-st.caption("CAPE — Key Findings & Recommendations | AI-Driven Analytics Platform | SAIES Research | Cal State LA · CIS | NSF Grant Project")
+st.caption("CAPE — Conclusions & Recommendations | AI-Driven Analytics Application | SAIES Research | Cal State LA · CIS | NSF Grant Project")
