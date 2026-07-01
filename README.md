@@ -6,7 +6,7 @@
 [![NSF Research](https://img.shields.io/badge/NSF-Undergraduate%20Research-blue)](https://www.nsf.gov)
 [![CSULA](https://img.shields.io/badge/CSULA-CIS%20Department-gold)](https://www.calstatela.edu)
 
-> Dr. Ming Wang · Brian · Daniel Ramirez  
+> Dr. Ming Wang · Brian Ta · Daniel Ramirez  
 > CSULA Department of CIS | SAIES Research Organization | NSF Grant Project
 
 ---
